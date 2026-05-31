@@ -1,0 +1,40 @@
+gps_monitor:
+  ros__parameters:
+    hdop_degraded_threshold: 5.0
+    hdop_lost_threshold: 20.0
+    min_satellites: 4
+    hysteresis_duration_sec: 2.0
+
+monocular_vio:
+  ros__parameters:
+    feature_detector: "ORB"        # ORB / SIFT / GFTT
+    max_features: 500
+    min_matches: 30
+    ransac_reproj_threshold: 1.0
+
+landmark_ghost:
+  ros__parameters:
+    landmark_db_path: "config/landmark_db.json"
+    reprojection_error_threshold: 50.0  # pixels
+    search_radius_m: 100.0
+
+ekf_fusion:
+  ros__parameters:
+    # Process noise (Q diagonal) - motion model uncertainty
+    Q: [0.1, 0.1, 0.01]  # [q_x, q_y, q_theta]
+    
+    # GPS measurement noise (R_gps diagonal) - GPS uncertainty
+    R_gps: [2.5, 2.5, 0.05]  # [r_gps_x, r_gps_y, r_gps_theta] - Dynamic: multiply by 3.0 on GPS_DEGRADED
+    
+    # Landmark measurement noise (R_landmark diagonal) - Landmark reprojection error uncertainty
+    R_landmark: [0.1, 0.1]  # [r_lm_x, r_lm_y]
+    
+    # GPS origin (Reference point for local ENU frame conversion)
+    gps_lat0: 0.0  # Reference latitude (set at first fix or from config)
+    gps_lon0: 0.0  # Reference longitude (set at first fix or from config)
+    
+    # Camera intrinsics (Monocular)
+    camera_fx: 600.0
+    camera_fy: 600.0
+    camera_cx: 320.0
+    camera_cy: 240.0

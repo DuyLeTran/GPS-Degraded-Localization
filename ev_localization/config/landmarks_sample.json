@@ -1,0 +1,54 @@
+{
+    "landmarks": [
+        {
+            "id": 1,
+            "class": "traffic_light",
+            "position_enu": [10.5, 20.0, 5.0],
+            "descriptor": [0.12, 0.45, 0.78, 0.99],
+            "t_first": 1717140000.0,
+            "t_last": 1717140015.5,
+            "n_obs": 45,
+            "bbox_size": [1.0, 3.0]
+        },
+        {
+            "id": 2,
+            "class": "stop_sign",
+            "position_enu": [12.0, 22.0, 2.5],
+            "descriptor": [0.33, 0.55, 0.77, 0.11],
+            "t_first": 1717140005.0,
+            "t_last": 1717140010.2,
+            "n_obs": 12,
+            "bbox_size": [0.8, 0.8]
+        },
+        {
+            "id": 3,
+            "class": "speed_limit_40",
+            "position_enu": [-5.0, 15.0, 2.0],
+            "descriptor": [0.98, 0.76, 0.54, 0.32],
+            "t_first": 1717140020.0,
+            "t_last": 1717140050.8,
+            "n_obs": 30,
+            "bbox_size": [0.6, 0.9]
+        },
+        {
+            "id": 4,
+            "class": "yield_sign",
+            "position_enu": [15.0, -10.0, 2.0],
+            "descriptor": [0.11, 0.22, 0.33, 0.44],
+            "t_first": 1717140100.0,
+            "t_last": 1717140105.1,
+            "n_obs": 8,
+            "bbox_size": [0.8, 0.8]
+        },
+        {
+            "id": 5,
+            "class": "crosswalk_sign",
+            "position_enu": [2.0, 2.0, 2.2],
+            "descriptor": [0.88, 0.66, 0.44, 0.22],
+            "t_first": 1717140200.0,
+            "t_last": 1717140250.0,
+            "n_obs": 80,
+            "bbox_size": [0.7, 0.7]
+        }
+    ]
+}
