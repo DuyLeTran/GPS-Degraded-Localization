@@ -145,7 +145,7 @@ class LandmarkGhostNode(Node):
             if Z > 0.1:
                 u = self.fx * X / Z + self.cx
                 v = self.fy * Y / Z + self.cy
-                ghosts.append((lm.id, lm.cls, u, v))
+                ghosts.append((lm, lm.cls, u, v))
                 
         if not ghosts:
             return
@@ -161,14 +161,16 @@ class LandmarkGhostNode(Node):
             
             best_dist = float('inf')
             best_match = None
+            best_lm = None
             
-            for g_id, g_cls, g_u, g_v in ghosts:
+            for g_lm, g_cls, g_u, g_v in ghosts:
                 # Semantic class matching
                 if g_cls == det_cls:
                     dist = math.hypot(g_u - u_det, g_v - v_det)
                     if dist < best_dist:
                         best_dist = dist
                         best_match = (g_u, g_v)
+                        best_lm = g_lm
                         
             # (5) Tính reprojection error (Δu, Δv) và Publish
             if best_match is not None and best_dist < self.match_dist_thresh:
@@ -182,6 +184,12 @@ class LandmarkGhostNode(Node):
                 err_msg.pose.pose.position.x = float(du)
                 err_msg.pose.pose.position.y = float(dv)
                 err_msg.pose.pose.position.z = 0.0
+                
+                # Pack landmark 3D position vào orientation fields (convention)
+                err_msg.pose.pose.orientation.x = float(best_lm.p3d[0])  # Lx
+                err_msg.pose.pose.orientation.y = float(best_lm.p3d[1])  # Ly
+                err_msg.pose.pose.orientation.z = float(best_lm.p3d[2])  # Lz
+                err_msg.pose.pose.orientation.w = 1.0
                 
                 self.err_pub.publish(err_msg)
 

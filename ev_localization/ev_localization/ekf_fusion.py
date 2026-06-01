@@ -45,12 +45,20 @@ class EkfFusionNode(Node):
         self.declare_parameter('R_landmark', [0.1, 0.1])
         self.declare_parameter('gps_lat0', 0.0)
         self.declare_parameter('gps_lon0', 0.0)
+        self.declare_parameter('camera_fx', 600.0)
+        self.declare_parameter('camera_fy', 600.0)
+        self.declare_parameter('camera_cx', 320.0)
+        self.declare_parameter('camera_cy', 240.0)
         
         q_params = self.get_parameter('Q').value
         r_gps_params = self.get_parameter('R_gps').value
         r_lm_params = self.get_parameter('R_landmark').value
         self.gps_lat0 = self.get_parameter('gps_lat0').value
         self.gps_lon0 = self.get_parameter('gps_lon0').value
+        self.fx = self.get_parameter('camera_fx').value
+        self.fy = self.get_parameter('camera_fy').value
+        self.cx = self.get_parameter('camera_cx').value
+        self.cy = self.get_parameter('camera_cy').value
         
         self.Q = np.diag(q_params)
         self.R_gps = np.diag(r_gps_params[:2])  # Lấy 2 thành phần cho x, y
@@ -72,8 +80,8 @@ class EkfFusionNode(Node):
         
         # Subscribers
         self.gps_status_sub = self.create_subscription(String, '/gps/status', self.on_gps_status, 10)
-        self.veh_odom_sub = self.create_subscription(Odometry, '/vehicle/odom', self.predict_callback, 10)
-        self.vo_odom_sub = self.create_subscription(Odometry, '/vo/odom', self.predict_callback, 10)
+        self.veh_odom_sub = self.create_subscription(Odometry, '/vehicle/odom', self.vehicle_odom_cb, 10)
+        self.vo_odom_sub = self.create_subscription(Odometry, '/vo/odom', self.vo_odom_cb, 10)
         self.gps_fix_sub = self.create_subscription(NavSatFix, '/gps/fix', self.gps_callback, 10)
         self.landmark_sub = self.create_subscription(PoseWithCovarianceStamped, '/landmark/reprojection_error', self.landmark_callback, 10)
         
@@ -117,7 +125,18 @@ class EkfFusionNode(Node):
 
         self.gps_status = new_status
 
-    def predict_callback(self, msg):
+    def vehicle_odom_cb(self, msg):
+        """Wheel odometry luôn dùng cho predict."""
+        self.predict_from_odom(msg)
+
+    def vo_odom_cb(self, msg):
+        """VO chỉ dùng cho predict khi GPS mất VÀ wheel odom không khả dụng.
+        Trong trường hợp cả 2 có, ưu tiên wheel odom (chính xác hơn về scale)."""
+        if self.gps_status in ["GPS_DEGRADED", "GPS_LOST"]:
+            # Nếu muốn dùng VO thay wheel odom, có thể thêm cờ hoặc xử lý riêng ở đây.
+            pass
+
+    def predict_from_odom(self, msg):
         current_time = self.get_clock().now()
         dt = (current_time - self.last_time).nanoseconds / 1e9
         self.last_time = current_time
@@ -184,29 +203,54 @@ class EkfFusionNode(Node):
         dv = msg.pose.pose.position.y
         z = np.array([du, dv])
         
+        # Lấy landmark 3D position từ message (packed bởi landmark_ghost)
+        lm_p3d = np.array([
+            msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z
+        ])
+        
         # Hàm tính Jacobian số học (numerical Jacobian) với eps = 1e-5
         eps = 1e-5
         H = np.zeros((2, 3))
         
-        # Do EKF Fusion không có toạ độ Landmark 3D cụ thể (do Ghost truyền dạng residual),
-        # hàm projection thực tế h(X) sẽ kết hợp từ Ghost projection. 
-        # Tuy nhiên H có thể được xấp xỉ cục bộ thông qua sự thay đổi Residual theo Pose.
-        # Ở đây ta giả sử hàm giả h(x,y,theta) cho quá trình projection
-        def dummy_h_proj(state):
-            # Hàm dummy thay the cho Projection thật do thieu thong tin Landmark 3D,
-            # Nếu có thông tin Landmark, project_3d_to_2d(lm_3d_world, state)
-            # Tại local point, ta giả định có 1 điểm tham chiếu ảo phía trước
-            x, y, theta = state
-            return np.array([x * 100.0, y * 100.0])
+        uv0 = self._project_landmark(lm_p3d, self.x)
+        if uv0 is None:
+            return
             
         for i in range(3):
-            state_plus = self.x.copy()
-            state_plus[i] += eps
-            state_minus = self.x.copy()
-            state_minus[i] -= eps
-            H[:, i] = (dummy_h_proj(state_plus) - dummy_h_proj(state_minus)) / (2 * eps)
+            x_plus = self.x.copy()
+            x_plus[i] += eps
+            uv_plus = self._project_landmark(lm_p3d, x_plus)
+            if uv_plus is None:
+                return
+            H[:, i] = (uv_plus - uv0) / eps
             
         self.generic_update(z, H, self.R_landmark)
+
+    def _project_landmark(self, p3d_world, state):
+        """Project 3D landmark world → 2D pixel given robot state."""
+        x, y, theta = state
+        cam_height = 1.5  # hoặc đọc từ parameter
+        dx = p3d_world[0] - x
+        dy = p3d_world[1] - y
+        dz = p3d_world[2] - cam_height
+        
+        c, s = np.cos(-theta), np.sin(-theta)
+        x_body = c * dx - s * dy    # Forward
+        y_body = s * dx + c * dy    # Left
+        
+        # Body → Camera (OpenCV convention)
+        X_cam = -y_body
+        Y_cam = -dz
+        Z_cam = x_body
+        
+        if Z_cam <= 0.1:
+            return None
+        
+        u = self.fx * X_cam / Z_cam + self.cx
+        v = self.fy * Y_cam / Z_cam + self.cy
+        return np.array([u, v])
 
     def publish_timer_callback(self):
         """ (4) Publish Pose, PoseWithCov, Path at 20Hz """

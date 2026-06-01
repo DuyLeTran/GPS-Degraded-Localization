@@ -53,7 +53,7 @@ class SmokeTestNode(Node):
             msg = NavSatFix()
             msg.header.stamp = now.to_msg()
             msg.header.frame_id = 'gps_link'
-            msg.latitude = 21.0
+            msg.latitude = 21.0 + elapsed * 0.00001
             msg.longitude = 105.0
             msg.altitude = 0.0
             # Giả lập mảng covariance dài 9, vị trí index 0 để encode HDOP

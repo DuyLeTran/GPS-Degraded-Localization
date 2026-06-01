@@ -58,7 +58,7 @@ class MonocularVioNode(Node):
         
         # ORB Detector & Matcher
         self.orb = cv2.ORB_create(nfeatures=self.max_features)
-        self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+        self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
         
         self.get_logger().info('Monocular VIO Node started.')
 
@@ -89,7 +89,14 @@ class MonocularVioNode(Node):
                 dt = 0.033 # Fallback 30fps
                 
             # Matching giữa frame hiện tại và frame trước
-            matches = self.bf.match(self.prev_des, des)
+            raw_matches = self.bf.knnMatch(self.prev_des, des, k=2)
+            matches = []
+            for pair in raw_matches:
+                if len(pair) == 2:
+                    m, n = pair
+                    if m.distance < 0.75 * n.distance:
+                        matches.append(m)
+            
             matches = sorted(matches, key=lambda x: x.distance)
             
             if len(matches) > 8:
@@ -124,6 +131,8 @@ class MonocularVioNode(Node):
                     self.pose_x += dx_body * math.cos(self.pose_theta) - dy_body * math.sin(self.pose_theta)
                     self.pose_y += dx_body * math.sin(self.pose_theta) + dy_body * math.cos(self.pose_theta)
                     self.pose_theta += delta_theta
+                    # Normalize angle to [-pi, pi]
+                    self.pose_theta = math.atan2(math.sin(self.pose_theta), math.cos(self.pose_theta))
                     
                     # 6. Publish nav_msgs/Odometry lên /vo/odom
                     self.publish_odom(msg.header.stamp)

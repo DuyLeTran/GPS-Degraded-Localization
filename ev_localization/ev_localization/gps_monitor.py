@@ -22,6 +22,8 @@ class GpsMonitorNode(Node):
         self.declare_parameter('hysteresis_duration_sec', 2.0)
         self.declare_parameter('timeout_sec', 10.0)
         self.declare_parameter('publish_rate_hz', 10.0)
+        self.declare_parameter('hysteresis_recover_sec', 3.0)
+        self.declare_parameter('hysteresis_relock_sec', 5.0)
         
         self.hdop_deg_th = self.get_parameter('hdop_degraded_threshold').value
         self.hdop_lost_th = self.get_parameter('hdop_lost_threshold').value
@@ -30,11 +32,13 @@ class GpsMonitorNode(Node):
         self.sats_good_th = self.get_parameter('sats_good_threshold').value
         self.hysteresis_dur = self.get_parameter('hysteresis_duration_sec').value
         self.timeout_sec = self.get_parameter('timeout_sec').value
+        self.hyst_recover = self.get_parameter('hysteresis_recover_sec').value
+        self.hyst_relock = self.get_parameter('hysteresis_relock_sec').value
         publish_rate = self.get_parameter('publish_rate_hz').value
         
         # Biến trạng thái State Machine
-        self.current_state = GpsState.GPS_LOST
-        self.target_state = GpsState.GPS_LOST
+        self.current_state = GpsState.GPS_GOOD
+        self.target_state = GpsState.GPS_GOOD
         self.state_change_start_time = None
         
         # Biến lưu trữ dữ liệu GPS
@@ -108,7 +112,16 @@ class GpsMonitorNode(Node):
             # Kiểm tra thời gian duy trì (hysteresis)
             if self.target_state != self.current_state and self.state_change_start_time is not None:
                 time_in_target = (now - self.state_change_start_time).nanoseconds / 1e9
-                if time_in_target >= self.hysteresis_dur:
+                
+                # Tính required_dur dựa trên hướng chuyển:
+                if self.current_state == GpsState.GPS_LOST and self.target_state == GpsState.GPS_GOOD:
+                    required_dur = self.hyst_relock        # 5s: LOST→GOOD
+                elif self.current_state == GpsState.GPS_DEGRADED and self.target_state == GpsState.GPS_GOOD:
+                    required_dur = self.hyst_recover       # 3s: DEGRADED→GOOD
+                else:
+                    required_dur = self.hysteresis_dur     # 2s: default (GOOD→DEGRADED)
+                    
+                if time_in_target >= required_dur:
                     self.get_logger().info(
                         f"State change: {self.current_state.value} -> {self.target_state.value} "
                         f"(HDOP={self.current_hdop:.2f}, Sats={self.current_sats})"
