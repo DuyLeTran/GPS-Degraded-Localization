@@ -27,6 +27,8 @@ setup(
             'monocular_vio = ev_localization.monocular_vio:main',
             'landmark_ghost = ev_localization.landmark_ghost:main',
             'ekf_fusion = ev_localization.ekf_fusion:main',
+            'kitti_odom_converter = ev_localization.kitti_odom_converter:main',
+            'yolo_detector = ev_localization.yolo_detector:main',
         ],
     },
 )
