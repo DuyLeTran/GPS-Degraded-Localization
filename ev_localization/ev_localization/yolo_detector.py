@@ -10,7 +10,9 @@ class YoloDetectorNode(Node):
         super().__init__('yolo_detector')
         
         self.declare_parameter('weights_path', '/home/tranleduy/GPS-Degraded-Localization/YOLOv8n/best.pt')
+        self.declare_parameter('publish_annotated_image', True)
         weights_path = self.get_parameter('weights_path').value
+        self.publish_annotated_image = self.get_parameter('publish_annotated_image').value
         
         self.get_logger().info(f"Loading YOLO model from {weights_path}")
         self.model = YOLO(weights_path)
@@ -18,6 +20,8 @@ class YoloDetectorNode(Node):
         
         self.img_sub = self.create_subscription(Image, '/camera/image_raw', self.image_cb, 10)
         self.det_pub = self.create_publisher(Detection2DArray, '/detection/bboxes', 10)
+        if self.publish_annotated_image:
+            self.annotated_pub = self.create_publisher(Image, '/camera/image_annotated', 10)
         
         # Mapping class_id to string based on YOLOv8n/kitti.yaml
         self.class_names = {
@@ -45,6 +49,12 @@ class YoloDetectorNode(Node):
         det_array.header = msg.header
         
         for result in results:
+            if self.publish_annotated_image:
+                annotated_frame = result.plot()
+                annotated_msg = self.bridge.cv2_to_imgmsg(annotated_frame, encoding='bgr8')
+                annotated_msg.header = msg.header
+                self.annotated_pub.publish(annotated_msg)
+
             boxes = result.boxes
             if boxes is None:
                 continue

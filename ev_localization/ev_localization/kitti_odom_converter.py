@@ -21,10 +21,19 @@ class KittiOdomConverter(Node):
     def __init__(self):
         super().__init__('kitti_odom_converter')
         
-        self.declare_parameter('gps_lat0', 49.011758)
-        self.declare_parameter('gps_lon0', 8.422249)
+        self.declare_parameter('gps_lat0', 49.033336608854)
+        self.declare_parameter('gps_lon0', 8.3375305625949)
         self.gps_lat0 = self.get_parameter('gps_lat0').value
         self.gps_lon0 = self.get_parameter('gps_lon0').value
+        
+        # Subscribe to TwistStamped if available
+        from geometry_msgs.msg import TwistStamped
+        self.twist_sub = self.create_subscription(
+            TwistStamped,
+            '/kitti/oxts/twist',
+            self.twist_cb,
+            10
+        )
         
         self.gps_sub = self.create_subscription(NavSatFix, '/gps/fix', self.gps_cb, 10)
         self.imu_sub = self.create_subscription(Imu, '/imu/data', self.imu_cb, 10)
@@ -36,6 +45,7 @@ class KittiOdomConverter(Node):
         
         self.latest_yaw = 0.0
         self.latest_omega_z = 0.0
+        self.has_twist = False
         
         self.get_logger().info("kitti_odom_converter started")
 
@@ -47,7 +57,24 @@ class KittiOdomConverter(Node):
         self.latest_yaw = math.atan2(t3, t4)
         self.latest_omega_z = msg.angular_velocity.z
 
+    def twist_cb(self, msg):
+        self.has_twist = True
+        
+        # Directly convert TwistStamped to Odometry
+        odom_msg = Odometry()
+        odom_msg.header = msg.header
+        odom_msg.header.frame_id = 'odom'
+        odom_msg.child_frame_id = 'base_link'
+        
+        odom_msg.twist.twist.linear.x = float(msg.twist.linear.x)
+        odom_msg.twist.twist.angular.z = float(msg.twist.angular.z)
+        
+        self.odom_pub.publish(odom_msg)
+
     def gps_cb(self, msg: NavSatFix):
+        if self.has_twist:
+            return  # Skip GPS differentiation if true twist is available
+            
         current_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         
         x, y = gps_to_local(msg.latitude, msg.longitude, self.gps_lat0, self.gps_lon0)

@@ -2,39 +2,79 @@ gps_monitor:
   ros__parameters:
     hdop_degraded_threshold: 5.0
     hdop_lost_threshold: 20.0
-    min_satellites: 4
+    hdop_good_threshold: 3.0
+    sats_degraded_threshold: 4
+    sats_good_threshold: 6
     hysteresis_duration_sec: 2.0
+    hysteresis_recover_sec: 3.0
+    hysteresis_relock_sec: 0.5
+    timeout_sec: 10.0
+    publish_rate_hz: 10.0
+    use_sim_time: false
 
 monocular_vio:
   ros__parameters:
-    feature_detector: "ORB"        # ORB / SIFT / GFTT
     max_features: 500
-    min_matches: 30
     ransac_reproj_threshold: 1.0
+    camera_fx: 600.0
+    camera_fy: 600.0
+    camera_cx: 320.0
+    camera_cy: 240.0
+    use_sim_time: false
 
 landmark_ghost:
   ros__parameters:
-    landmark_db_path: "config/landmark_db.json"
-    reprojection_error_threshold: 50.0  # pixels
-    search_radius_m: 100.0
+    db_path: "config/landmarks_kitti.json"
+    fx: 600.0
+    fy: 600.0
+    cx: 320.0
+    cy: 240.0
+    cam_x: 0.0
+    cam_y: 0.0
+    cam_z: 1.5
+    cam_roll: -1.5708
+    cam_pitch: 0.0
+    cam_yaw: -1.5708
+    match_dist_thresh: 15.0
+    use_sim_time: false
 
 ekf_fusion:
   ros__parameters:
-    # Process noise (Q diagonal) - motion model uncertainty
-    Q: [0.1, 0.1, 0.01]  # [q_x, q_y, q_theta]
-    
-    # GPS measurement noise (R_gps diagonal) - GPS uncertainty
-    R_gps: [2.5, 2.5, 0.05]  # [r_gps_x, r_gps_y, r_gps_theta] - Dynamic: multiply by 3.0 on GPS_DEGRADED
-    
-    # Landmark measurement noise (R_landmark diagonal) - Landmark reprojection error uncertainty
-    R_landmark: [0.1, 0.1]  # [r_lm_x, r_lm_y]
-    
+    # Process noise (Q diagonal) — continuous-time spectral density.
+    # Discretized as Q_d = Q_c * dt in the predict step.
+    # Values represent noise power per second: [q_x, q_y, q_theta]
+    Q: [0.1, 0.1, 0.01]
+
+    # GPS measurement noise (R_gps diagonal) — observation uncertainty.
+    # During GPS_DEGRADED, these values are multiplied by 3.0 automatically.
+    # [r_gps_x, r_gps_y, r_gps_theta(unused)]
+    R_gps: [2.5, 2.5, 0.05]
+
+    # Landmark measurement noise (R_landmark diagonal)
+    # Reprojection error uncertainty in pixels: [r_lm_u, r_lm_v]
+    R_landmark: [1.0, 1.0]
+
     # GPS origin (Reference point for local ENU frame conversion)
-    gps_lat0: 0.0  # Reference latitude (set at first fix or from config)
-    gps_lon0: 0.0  # Reference longitude (set at first fix or from config)
-    
+    # KITTI sequence 2011_09_26_drive_0046 start position
+    gps_lat0: 49.009347760599
+    gps_lon0: 8.4371344308375
+
+    # Initial yaw from IMU (first reading) in ENU frame.
+    # Used to rotate GPS ENU coordinates into the vehicle's local odom frame.
+    initial_yaw: -0.2697266732051
+
+    # Maximum covariance diagonal value — prevents P divergence during
+    # extended GPS-denied periods. If any P[i,i] exceeds this, the entire
+    # row/column is scaled down proportionally to preserve correlations.
+    max_covariance: 1000.0
+
+    # Maximum number of poses stored in the trajectory path message.
+    # Prevents unbounded memory growth on long runs.
+    max_path_length: 10000
+
     # Camera intrinsics (Monocular)
     camera_fx: 600.0
     camera_fy: 600.0
     camera_cx: 320.0
     camera_cy: 240.0
+    use_sim_time: false

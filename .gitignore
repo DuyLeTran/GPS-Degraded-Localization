@@ -22,5 +22,12 @@ pdf_pages/
 ev_localization/ev_localization.egg-info
 .DS_Store
 Thumbs.db
+
+
+
+context.md
+demo_gui_guide.md
+results_for_ai/
 ros2_runbook_implementation.md
 create_pkg.py
+rviz2_demo_interface.png

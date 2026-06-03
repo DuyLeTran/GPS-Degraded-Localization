@@ -1,0 +1,91 @@
+Panels:
+  - Class: rviz_common/Displays
+    Help Height: 78
+    Name: Displays
+    Property Grid State:
+      expanded:
+        - ~
+        - ~/Grid1
+        - ~/TF1
+        - ~/Trajectory1
+        - ~/Pose1
+      split:
+        half: 0.5
+        value: 150
+    Splitter Distances:
+      - 150
+      - 550
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.5
+      Cell Size: 1
+      Class: rviz_default_plugins/Grid
+      Color: 160; 160; 160
+      Enabled: true
+      Name: Grid
+      Plane: XY
+      Reference Frame: <Fixed Frame>
+      Value: true
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Name: TF
+      Show Axes: true
+      Show Names: true
+      Value: true
+    - Class: rviz_default_plugins/Path
+      Color: 0; 255; 0
+      Enabled: true
+      Line Style: Billboards
+      Line Width: 0.05
+      Name: Trajectory
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /ekf/trajectory
+      Value: true
+    - Class: rviz_default_plugins/Pose
+      Color: 255; 0; 0
+      Enabled: true
+      Name: Pose
+      Shape: Arrow
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /ekf/pose
+      Value: true
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Name: YOLO_Annotated_Image
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /camera/image_annotated
+      Value: true
+  Enabled: true
+  Fixed Frame: odom
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: odom
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 20
+      Name: Current View
+      Pitch: 0.7
+      Target Frame: odom
+      Value: true
+      Yaw: 0.7
