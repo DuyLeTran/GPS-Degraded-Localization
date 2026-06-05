@@ -1,6 +1,6 @@
 import json
 import numpy as np
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional, Tuple, Dict
 
 @dataclass
@@ -13,6 +13,12 @@ class Landmark:
     t_last: float
     n_obs: int
     bbox_size: Tuple[float, float]
+    # --- New fields for lifecycle and filtering ---
+    status: str = "CANDIDATE"        # CANDIDATE | PROVISIONAL | CONFIRMED | ARCHIVED
+    confidence: float = 0.0          # [0, 1]
+    position_variance: float = 999.0 # Variance of position estimates
+    source: str = "triangulation"    # triangulation | depth_from_size | structure
+    position_history: List[np.ndarray] = field(default_factory=list, repr=False)
 
     def to_dict(self) -> dict:
         return {
@@ -23,16 +29,19 @@ class Landmark:
             "t_first": self.t_first,
             "t_last": self.t_last,
             "n_obs": self.n_obs,
-            "bbox_size": list(self.bbox_size)
+            "bbox_size": list(self.bbox_size),
+            "status": self.status,
+            "confidence": self.confidence,
+            "position_variance": self.position_variance,
+            "source": self.source
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> 'Landmark':
-        # Bản đồ các field JSON mẫu ("position_enu", "class") sang object
         p3d_data = data.get("p3d", data.get("position_enu", [0.0, 0.0, 0.0]))
         descriptor_data = data.get("descriptor", [])
         
-        return cls(
+        lm = cls(
             id=data.get("id", -1),
             cls=data.get("cls", data.get("class", "unknown")),
             p3d=np.array(p3d_data, dtype=np.float64),
@@ -40,8 +49,32 @@ class Landmark:
             t_first=data.get("t_first", 0.0),
             t_last=data.get("t_last", 0.0),
             n_obs=data.get("n_obs", 0),
-            bbox_size=tuple(data.get("bbox_size", (0.0, 0.0)))
+            bbox_size=tuple(data.get("bbox_size", (0.0, 0.0))),
+            status=data.get("status", "CANDIDATE"),
+            confidence=data.get("confidence", 0.0),
+            position_variance=data.get("position_variance", 999.0),
+            source=data.get("source", "triangulation")
         )
+        lm.position_history = [lm.p3d]
+        return lm
+
+    def update_position(self, new_p3d: np.ndarray, timestamp: float):
+        if not hasattr(self, 'position_history') or self.position_history is None:
+            self.position_history = [self.p3d]
+        self.position_history.append(new_p3d)
+        self.n_obs += 1
+        self.t_last = timestamp
+        
+        # Running average
+        self.p3d = np.mean(self.position_history, axis=0)
+        
+        # Calculate variance (sum of variances of x, y, z)
+        if len(self.position_history) > 1:
+            vars_xyz = np.var(self.position_history, axis=0)
+            self.position_variance = float(np.sum(vars_xyz))
+        else:
+            self.position_variance = 0.0
+
 
 class LandmarkDB:
     def __init__(self):
@@ -73,9 +106,11 @@ class LandmarkDB:
         results = []
         radius_sq = radius ** 2
         for lm in self.landmarks.values():
+            # Chỉ dùng landmarks đã được xác nhận (CONFIRMED) hoặc tạm thời (PROVISIONAL) để chiếu
+            if lm.status not in ["CONFIRMED", "PROVISIONAL"]:
+                continue
             dx = lm.p3d[0] - x
             dy = lm.p3d[1] - y
-            # Dùng khoảng cách Euclidean tính bình phương cho nhanh (Euclidean distance 2D)
             if (dx**2 + dy**2) <= radius_sq:
                 results.append(lm)
         return results
@@ -83,3 +118,15 @@ class LandmarkDB:
     def get_by_id(self, lm_id: int) -> Optional[Landmark]:
         """Lấy một landmark cụ thể từ database thông qua ID"""
         return self.landmarks.get(lm_id, None)
+
+    def associate(self, cls: str, position: np.ndarray, radius: float = 3.0) -> Optional[Landmark]:
+        """Tìm landmark cùng class có khoảng cách 3D gần nhất trong bán kính radius"""
+        best_lm = None
+        best_dist = radius
+        for lm in self.landmarks.values():
+            if lm.cls == cls:
+                dist = np.linalg.norm(lm.p3d - position)
+                if dist < best_dist:
+                    best_dist = dist
+                    best_lm = lm
+        return best_lm

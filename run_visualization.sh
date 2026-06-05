@@ -12,7 +12,7 @@ cleanup() {
     kill $PID_TF1 2>/dev/null || true
     kill $PID_TF2 2>/dev/null || true
     kill $PID_TF3 2>/dev/null || true
-    killall -9 static_transform_publisher ekf_fusion gps_monitor monocular_vio landmark_ghost kitti_odom_converter yolo_detector rviz2 2>/dev/null || true
+    killall -9 static_transform_publisher ekf_fusion gps_monitor monocular_vio landmark_ghost kitti_odom_converter yolo_detector lane_detector uturn_detector rviz2 2>/dev/null || true
     echo "Done. Exiting."
     exit 0
 }
@@ -26,7 +26,7 @@ source install/setup.bash
 
 # Clean up any residual ROS 2 processes
 echo "Cleaning up any old ROS 2 processes..."
-killall -9 static_transform_publisher ekf_fusion gps_monitor monocular_vio landmark_ghost kitti_odom_converter yolo_detector rviz2 ros2 2>/dev/null || true
+killall -9 static_transform_publisher ekf_fusion gps_monitor monocular_vio landmark_ghost kitti_odom_converter yolo_detector lane_detector uturn_detector rviz2 ros2 2>/dev/null || true
 
 # 1. Start Static TF Publishers
 echo "Launching Static TF Publishers..."

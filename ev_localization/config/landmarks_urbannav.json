@@ -1,0 +1,1070 @@
+{
+    "landmarks": [
+        {
+            "id": 1,
+            "class": "car",
+            "position_enu": [
+                -129.7746669362569,
+                -649.4200948712228,
+                0.0
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621579068.1136737,
+            "t_last": 1621579068.6492698,
+            "n_obs": 9,
+            "bbox_size": [
+                28.702056884765625,
+                30.644180297851562
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.10127079192428032,
+            "source": "flat_ground"
+        },
+        {
+            "id": 2,
+            "class": "car",
+            "position_enu": [
+                -157.22724362019525,
+                -752.1894984599711,
+                3.700743415417188e-17
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621579075.5927331,
+            "t_last": 1621579075.926797,
+            "n_obs": 6,
+            "bbox_size": [
+                72.72166442871094,
+                50.27900695800781
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 1.841691707720893,
+            "source": "flat_ground"
+        },
+        {
+            "id": 3,
+            "class": "car",
+            "position_enu": [
+                -191.1641442425799,
+                -747.1907606121885,
+                0.0
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621579081.1351447,
+            "t_last": 1621579081.4031045,
+            "n_obs": 5,
+            "bbox_size": [
+                53.39158630371094,
+                35.37379455566406
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 0.1951915165634892,
+            "source": "flat_ground"
+        },
+        {
+            "id": 4,
+            "class": "car",
+            "position_enu": [
+                -199.21979547353922,
+                -689.8977756085551,
+                0.0
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621579090.8843317,
+            "t_last": 1621579091.4193294,
+            "n_obs": 5,
+            "bbox_size": [
+                56.120635986328125,
+                42.93144226074219
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 1.9427229549804825,
+            "source": "flat_ground"
+        },
+        {
+            "id": 5,
+            "class": "car",
+            "position_enu": [
+                -209.08463131807235,
+                -687.7612119892968,
+                0.1912359700243793
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621579090.4838243,
+            "t_last": 1621579091.48629,
+            "n_obs": 15,
+            "bbox_size": [
+                50.6287841796875,
+                27.1961669921875
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.3029417454507912,
+            "source": "triangulation"
+        },
+        {
+            "id": 6,
+            "class": "car",
+            "position_enu": [
+                -212.67106246603154,
+                -684.8547686487564,
+                -0.24962786219088273
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621579091.2856548,
+            "t_last": 1621579091.9527252,
+            "n_obs": 11,
+            "bbox_size": [
+                84.85052585601807,
+                42.35554504394531
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.2527789191427568,
+            "source": "triangulation"
+        },
+        {
+            "id": 7,
+            "class": "car",
+            "position_enu": [
+                -203.83893249009384,
+                -674.66672126161,
+                3.700743415417188e-17
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621579093.087545,
+            "t_last": 1621579093.9565206,
+            "n_obs": 12,
+            "bbox_size": [
+                61.77618408203125,
+                45.90263366699219
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 1.9072603579268774,
+            "source": "flat_ground"
+        },
+        {
+            "id": 8,
+            "class": "car",
+            "position_enu": [
+                -201.9001949928488,
+                -651.6925146621073,
+                1.850371707708594e-17
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621579095.8926291,
+            "t_last": 1621579096.6275666,
+            "n_obs": 12,
+            "bbox_size": [
+                54.18499755859375,
+                30.502166748046875
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.5710442708447928,
+            "source": "flat_ground"
+        },
+        {
+            "id": 9,
+            "class": "truck",
+            "position_enu": [
+                -207.214975360231,
+                -649.7399401364103,
+                0.0
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621579097.8961697,
+            "t_last": 1621579098.2970777,
+            "n_obs": 7,
+            "bbox_size": [
+                292.4150085449219,
+                282.1164413690567
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 1.4421548917630775,
+            "source": "flat_ground"
+        },
+        {
+            "id": 10,
+            "class": "truck",
+            "position_enu": [
+                -211.55024527126116,
+                -649.4650756204543,
+                0.0
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621579098.2292325,
+            "t_last": 1621579098.4973772,
+            "n_obs": 5,
+            "bbox_size": [
+                202.00782775878906,
+                309.69039249420166
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 0.6757636521695018,
+            "source": "flat_ground"
+        },
+        {
+            "id": 11,
+            "class": "car",
+            "position_enu": [
+                -222.4855798841335,
+                -605.8561195543405,
+                0.0
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621579098.2970777,
+            "t_last": 1621579098.5639503,
+            "n_obs": 5,
+            "bbox_size": [
+                16.79180908203125,
+                17.173370361328125
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 1.6795219454851562,
+            "source": "flat_ground"
+        },
+        {
+            "id": 12,
+            "class": "car",
+            "position_enu": [
+                -223.2487856332982,
+                -589.1468362169325,
+                0.4603966781711846
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621579104.5731068,
+            "t_last": 1621579105.775251,
+            "n_obs": 18,
+            "bbox_size": [
+                131.49252319335938,
+                75.884033203125
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.3433075126482253,
+            "source": "triangulation"
+        },
+        {
+            "id": 13,
+            "class": "car",
+            "position_enu": [
+                -225.98629046039167,
+                -582.016430988145,
+                0.0
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621579105.1741712,
+            "t_last": 1621579105.9760206,
+            "n_obs": 8,
+            "bbox_size": [
+                40.420135498046875,
+                35.40455627441406
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.6586599691263493,
+            "source": "flat_ground"
+        },
+        {
+            "id": 14,
+            "class": "van",
+            "position_enu": [
+                -228.368533569889,
+                -578.5721381798135,
+                0.0
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621579109.11371,
+            "t_last": 1621579115.5909536,
+            "n_obs": 7,
+            "bbox_size": [
+                179.05938720703125,
+                132.37786865234375
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 0.0,
+            "source": "triangulation"
+        },
+        {
+            "id": 15,
+            "class": "van",
+            "position_enu": [
+                -231.41740941683238,
+                -559.8831943705405,
+                0.0
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621579108.3130646,
+            "t_last": 1621579110.1158297,
+            "n_obs": 17,
+            "bbox_size": [
+                29.14251708984375,
+                27.170089721679688
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.9926366098832206,
+            "source": "flat_ground"
+        },
+        {
+            "id": 16,
+            "class": "van",
+            "position_enu": [
+                -231.6563568722934,
+                -579.7813107792724,
+                0.0
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621579113.1866405,
+            "t_last": 1621579114.789151,
+            "n_obs": 21,
+            "bbox_size": [
+                145.1191864013672,
+                302.0459671020508
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.06297293099716236,
+            "source": "flat_ground"
+        },
+        {
+            "id": 17,
+            "class": "misc",
+            "position_enu": [
+                11.39769199900796,
+                2.1189611854635686,
+                1.1965922353591107
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578634.077909,
+            "t_last": 1621578634.6785977,
+            "n_obs": 10,
+            "bbox_size": [
+                191.46306610107422,
+                150.5452880859375
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.7489236358408325,
+            "source": "triangulation"
+        },
+        {
+            "id": 18,
+            "class": "truck",
+            "position_enu": [
+                11.80599745834946,
+                1.2660877524101157,
+                1.3947688050281273
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578634.8787875,
+            "t_last": 1621578635.3456643,
+            "n_obs": 8,
+            "bbox_size": [
+                187.58005142211914,
+                222.98643493652344
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 1.3138585971540468,
+            "source": "triangulation"
+        },
+        {
+            "id": 19,
+            "class": "truck",
+            "position_enu": [
+                39.68724799142569,
+                -16.054093497165105,
+                0.0
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578637.0153682,
+            "t_last": 1621578637.5495906,
+            "n_obs": 5,
+            "bbox_size": [
+                191.97659301757812,
+                93.674560546875
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 1.3469783853901927,
+            "source": "flat_ground"
+        },
+        {
+            "id": 20,
+            "class": "van",
+            "position_enu": [
+                38.82665449351125,
+                -7.08359561752092,
+                0.0
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578638.0831206,
+            "t_last": 1621578638.551393,
+            "n_obs": 8,
+            "bbox_size": [
+                71.42987060546875,
+                178.60523986816406
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.6905262499313306,
+            "source": "flat_ground"
+        },
+        {
+            "id": 21,
+            "class": "car",
+            "position_enu": [
+                103.2580950344253,
+                -38.200898666847465,
+                -0.34090325418473455
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578642.7580483,
+            "t_last": 1621578655.9147968,
+            "n_obs": 173,
+            "bbox_size": [
+                26.6641845703125,
+                16.976104736328125
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.3067235311848811,
+            "source": "triangulation"
+        },
+        {
+            "id": 22,
+            "class": "truck",
+            "position_enu": [
+                20.3088432818543,
+                -0.9492658169607104,
+                -1.3877787807814457e-17
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578669.801207,
+            "t_last": 1621578670.9371083,
+            "n_obs": 16,
+            "bbox_size": [
+                138.3265380859375,
+                175.38607788085938
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 1.0990442216659742,
+            "source": "flat_ground"
+        },
+        {
+            "id": 23,
+            "class": "car",
+            "position_enu": [
+                1.3277563074004795,
+                -8.846144785084967,
+                -2.960594732333751e-17
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578672.3403075,
+            "t_last": 1621578674.075588,
+            "n_obs": 15,
+            "bbox_size": [
+                45.4996337890625,
+                34.31123352050781
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.3109760561655935,
+            "source": "flat_ground"
+        },
+        {
+            "id": 24,
+            "class": "van",
+            "position_enu": [
+                0.1028063596469312,
+                -8.963340442814642,
+                3.172065784643304e-17
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578674.6099682,
+            "t_last": 1621578675.7445772,
+            "n_obs": 7,
+            "bbox_size": [
+                70.59274291992188,
+                82.0467529296875
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 0.06879114225866555,
+            "source": "flat_ground"
+        },
+        {
+            "id": 25,
+            "class": "van",
+            "position_enu": [
+                -12.096445098873946,
+                8.0774239991528,
+                0.679005666005619
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578674.6770682,
+            "t_last": 1621578677.0133743,
+            "n_obs": 17,
+            "bbox_size": [
+                89.4112548828125,
+                53.69976806640625
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.09888547765591899,
+            "source": "triangulation"
+        },
+        {
+            "id": 26,
+            "class": "misc",
+            "position_enu": [
+                -1.103991880961447,
+                -8.888131996945425,
+                9.994161539484029e-18
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578677.6808052,
+            "t_last": 1621578706.060171,
+            "n_obs": 75,
+            "bbox_size": [
+                100.939453125,
+                148.7878189086914
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.006198590253695289,
+            "source": "flat_ground"
+        },
+        {
+            "id": 27,
+            "class": "car",
+            "position_enu": [
+                -1.303975738863689,
+                -3.5391269484860497,
+                2.7755575615628914e-17
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578695.1092827,
+            "t_last": 1621578695.5772624,
+            "n_obs": 8,
+            "bbox_size": [
+                32.59100341796875,
+                92.92160034179688
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.6231239326088667,
+            "source": "flat_ground"
+        },
+        {
+            "id": 28,
+            "class": "van",
+            "position_enu": [
+                -5.8126679130795695,
+                -0.18615927385557982,
+                -1.7529837230923523e-17
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578698.9819827,
+            "t_last": 1621578707.9971008,
+            "n_obs": 22,
+            "bbox_size": [
+                152.2266845703125,
+                125.31619262695312
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.0,
+            "source": "flat_ground"
+        },
+        {
+            "id": 29,
+            "class": "van",
+            "position_enu": [
+                -17.846703410232223,
+                8.887934015907106,
+                0.9923354263184134
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578669.3346765,
+            "t_last": 1621578708.130482,
+            "n_obs": 528,
+            "bbox_size": [
+                77.098388671875,
+                89.62286376953125
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 1.80589626403389,
+            "source": "triangulation"
+        },
+        {
+            "id": 30,
+            "class": "car",
+            "position_enu": [
+                -70.33590685040325,
+                -44.52814599666724,
+                0.0
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578720.2169368,
+            "t_last": 1621578720.7513938,
+            "n_obs": 6,
+            "bbox_size": [
+                68.60470581054688,
+                69.91587829589844
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 0.009440447775334693,
+            "source": "flat_ground"
+        },
+        {
+            "id": 31,
+            "class": "van",
+            "position_enu": [
+                -72.81356671686578,
+                -46.80924552982073,
+                0.0
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578720.7513938,
+            "t_last": 1621578744.5898106,
+            "n_obs": 56,
+            "bbox_size": [
+                99.10720825195312,
+                111.00724792480469
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.9345058111096477,
+            "source": "flat_ground"
+        },
+        {
+            "id": 32,
+            "class": "misc",
+            "position_enu": [
+                -83.39447390278889,
+                -43.55339221902783,
+                0.0
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578725.0245137,
+            "t_last": 1621578725.6920228,
+            "n_obs": 9,
+            "bbox_size": [
+                37.770263671875,
+                37.99623107910156
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.9244934836807357,
+            "source": "flat_ground"
+        },
+        {
+            "id": 33,
+            "class": "misc",
+            "position_enu": [
+                -71.98157304398998,
+                -45.89664034554697,
+                -1.1902390984720147e-17
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578723.221992,
+            "t_last": 1621578744.5898106,
+            "n_obs": 26,
+            "bbox_size": [
+                128.92184448242188,
+                129.9788360595703
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.007070695057330542,
+            "source": "flat_ground"
+        },
+        {
+            "id": 34,
+            "class": "truck",
+            "position_enu": [
+                -74.91053587545944,
+                -49.70906998985929,
+                3.172065784643304e-17
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578744.8584006,
+            "t_last": 1621578745.3242388,
+            "n_obs": 7,
+            "bbox_size": [
+                81.21591186523438,
+                79.11190795898438
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 0.1261183220830922,
+            "source": "flat_ground"
+        },
+        {
+            "id": 35,
+            "class": "tram",
+            "position_enu": [
+                -75.03259250426898,
+                -52.86684970626192,
+                3.700743415417188e-17
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578748.1955907,
+            "t_last": 1621578748.996401,
+            "n_obs": 6,
+            "bbox_size": [
+                270.7514953613281,
+                334.18589210510254
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 1.4896863902318598,
+            "source": "flat_ground"
+        },
+        {
+            "id": 36,
+            "class": "car",
+            "position_enu": [
+                -91.58491922161146,
+                -82.29125724852251,
+                1.325023819742741
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578753.5378685,
+            "t_last": 1621578754.3396668,
+            "n_obs": 9,
+            "bbox_size": [
+                117.14474487304688,
+                46.522735595703125
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 1.4533572319539831,
+            "source": "triangulation"
+        },
+        {
+            "id": 37,
+            "class": "van",
+            "position_enu": [
+                -95.30241299194256,
+                -85.69483123700924,
+                1.1568774719242187
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578754.1393104,
+            "t_last": 1621578754.672756,
+            "n_obs": 6,
+            "bbox_size": [
+                142.41680908203125,
+                57.668487548828125
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 0.5286886559164775,
+            "source": "triangulation"
+        },
+        {
+            "id": 38,
+            "class": "truck",
+            "position_enu": [
+                -93.69207021014677,
+                -95.34511917152068,
+                1.5288263690581485
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578755.140727,
+            "t_last": 1621578756.2765472,
+            "n_obs": 13,
+            "bbox_size": [
+                254.3670654296875,
+                290.4383773803711
+            ],
+            "status": "CONFIRMED",
+            "confidence": 1.0,
+            "position_variance": 0.986519266789678,
+            "source": "triangulation"
+        },
+        {
+            "id": 39,
+            "class": "car",
+            "position_enu": [
+                -94.87651557887698,
+                -118.51127713106405,
+                0.0
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578757.0772452,
+            "t_last": 1621578758.6124089,
+            "n_obs": 24,
+            "bbox_size": [
+                202.7950439453125,
+                99.12641906738281
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 1.6852125437724514,
+            "source": "flat_ground"
+        },
+        {
+            "id": 40,
+            "class": "car",
+            "position_enu": [
+                -83.61818782767847,
+                -167.0712588899719,
+                0.6222463472381646
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578763.3539581,
+            "t_last": 1621578764.2887027,
+            "n_obs": 14,
+            "bbox_size": [
+                155.41680908203125,
+                88.26708984375
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 1.1008143331040958,
+            "source": "triangulation"
+        },
+        {
+            "id": 41,
+            "class": "misc",
+            "position_enu": [
+                -52.10599651119429,
+                -286.8266326106852,
+                0.0
+            ],
+            "descriptor": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            "t_first": 1621578773.2369378,
+            "t_last": 1621578773.9041708,
+            "n_obs": 6,
+            "bbox_size": [
+                18.8651123046875,
+                24.327789306640625
+            ],
+            "status": "PROVISIONAL",
+            "confidence": 1.0,
+            "position_variance": 1.8763199429345176,
+            "source": "flat_ground"
+        }
+    ]
+}

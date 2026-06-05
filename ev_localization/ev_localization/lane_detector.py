@@ -22,7 +22,6 @@ class LaneDetectorNode(Node):
         self.declare_parameter('slope_min', 0.3)
         self.declare_parameter('slope_max', 3.0)
         self.declare_parameter('publish_debug_image', True)
-        self.declare_parameter('deviation_threshold', 0.08)
 
         self.roi_top_ratio = self.get_parameter('roi_top_ratio').value
         self.canny_low = self.get_parameter('canny_low').value
@@ -33,7 +32,6 @@ class LaneDetectorNode(Node):
         self.slope_min = self.get_parameter('slope_min').value
         self.slope_max = self.get_parameter('slope_max').value
         self.publish_debug_image = self.get_parameter('publish_debug_image').value
-        self.deviation_threshold = self.get_parameter('deviation_threshold').value
 
         self.get_logger().info(
             f'Lane params: roi_top_ratio={self.roi_top_ratio}, '
@@ -41,8 +39,7 @@ class LaneDetectorNode(Node):
             f'hough=(th={self.hough_threshold}, minLen={self.hough_min_line_length}, '
             f'maxGap={self.hough_max_line_gap}), '
             f'slope=({self.slope_min}, {self.slope_max}), '
-            f'debug_image={self.publish_debug_image}, '
-            f'deviation_threshold={self.deviation_threshold}')
+            f'debug_image={self.publish_debug_image}')
 
         # Subscriber nhận ảnh từ camera
         self.image_sub = self.create_subscription(
@@ -94,7 +91,7 @@ class LaneDetectorNode(Node):
             )
 
             # Phân loại trạng thái làn đường dựa trên các đoạn thẳng tìm được
-            status = self._classify_lanes(lines, w, roi.shape[0])
+            status = self._classify_lanes(lines, w)
 
             # Publish trạng thái làn đường
             status_msg = String()
@@ -112,13 +109,13 @@ class LaneDetectorNode(Node):
         except Exception as e:
             self.get_logger().error(f'Lane detection error: {e}')
 
-    def _classify_lanes(self, lines, image_width, roi_height):
-        """Phân loại vị trí xe so với làn đường dựa trên khoảng cách lệch của xe với trung tâm làn.
+    def _classify_lanes(self, lines, image_width):
+        """Phân loại vị trí xe so với làn đường dựa trên độ nghiêng và vị trí đoạn thẳng.
 
         Trả về:
-            'CENTER'  — xe chạy chính giữa làn (độ lệch nhỏ hơn ngưỡng)
-            'LEFT'    — xe đang lệch/nghiêng về bên trái làn đường
-            'RIGHT'   — xe đang lệch/nghiêng về bên phải làn đường
+            'CENTER'  — cả hai làn trái/phải đều nhìn thấy
+            'LEFT'    — chỉ thấy làn phải → xe đang nghiêng về bên trái
+            'RIGHT'   — chỉ thấy làn trái → xe đang nghiêng về bên phải
             'UNKNOWN' — không phát hiện được làn đường
         """
         if lines is None or len(lines) == 0:
@@ -126,8 +123,6 @@ class LaneDetectorNode(Node):
 
         left_lines = []
         right_lines = []
-        left_intercepts = []
-        right_intercepts = []
         cx = image_width / 2.0  # Tâm ảnh theo chiều ngang
 
         for line in lines:
@@ -146,42 +141,21 @@ class LaneDetectorNode(Node):
 
             x_mid = (x1 + x2) / 2.0
 
-            # Tính điểm cắt x_intercept tại đáy ROI (y = roi_height)
-            # Phương trình đường thẳng: x = x1 + (y - y1) * (x2 - x1) / (y2 - y1)
-            if y2 != y1:
-                x_intercept = x1 + (roi_height - y1) * (x2 - x1) / (y2 - y1)
-            else:
-                x_intercept = x_mid
-
             # Trong hệ toạ độ ảnh (y tăng xuống dưới), nhìn từ camera phía trước:
             #   - Làn TRÁI: slope âm (đi từ dưới-trái lên trên-phải) VÀ x_mid < cx
             #   - Làn PHẢI: slope dương (đi từ dưới-phải lên trên-trái) VÀ x_mid > cx
             if slope < 0 and x_mid < cx:
                 left_lines.append(line)
-                left_intercepts.append(x_intercept)
             elif slope > 0 and x_mid > cx:
                 right_lines.append(line)
-                right_intercepts.append(x_intercept)
 
-        # Tính toán độ lệch nếu phát hiện đầy đủ cả hai làn đường
+        # Xác định trạng thái dựa trên số làn phát hiện được
         if len(left_lines) > 0 and len(right_lines) > 0:
-            left_x = np.mean(left_intercepts)
-            right_x = np.mean(right_intercepts)
-            lane_width = right_x - left_x
-            if lane_width > 0:
-                lane_center = (left_x + right_x) / 2.0
-                offset_ratio = (lane_center - cx) / lane_width
-                
-                # Nếu camera (xe) lệch trái, trung tâm làn trong ảnh sẽ dịch sang phải (offset_ratio dương)
-                if offset_ratio > self.deviation_threshold:
-                    return 'LEFT'   # Xe đang lệch về mép trái làn
-                elif offset_ratio < -self.deviation_threshold:
-                    return 'RIGHT'  # Xe đang lệch về mép phải làn
             return 'CENTER'
         elif len(left_lines) > 0 and len(right_lines) == 0:
-            return 'RIGHT'   # Chỉ thấy làn trái → xe lệch sang phải
+            return 'RIGHT'   # Chỉ thấy biên trái → xe gần mép phải
         elif len(right_lines) > 0 and len(left_lines) == 0:
-            return 'LEFT'    # Chỉ thấy làn phải → xe lệch sang trái
+            return 'LEFT'    # Chỉ thấy biên phải → xe gần mép trái
         else:
             return 'UNKNOWN'
 

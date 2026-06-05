@@ -28,7 +28,11 @@ setup(
             'landmark_ghost = ev_localization.landmark_ghost:main',
             'ekf_fusion = ev_localization.ekf_fusion:main',
             'kitti_odom_converter = ev_localization.kitti_odom_converter:main',
+            'urbannav_converter = ev_localization.urbannav_converter:main',
             'yolo_detector = ev_localization.yolo_detector:main',
+            'lane_detector = ev_localization.lane_detector:main',
+            'uturn_detector = ev_localization.uturn_detector:main',
+            'landmark_builder = ev_localization.landmark_builder:main',
         ],
     },
 )

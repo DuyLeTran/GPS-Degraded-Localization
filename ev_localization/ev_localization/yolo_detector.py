@@ -4,6 +4,7 @@ from sensor_msgs.msg import Image
 from vision_msgs.msg import Detection2DArray, Detection2D, ObjectHypothesisWithPose
 from cv_bridge import CvBridge
 from ultralytics import YOLO
+from rcl_interfaces.msg import SetParametersResult
 
 class YoloDetectorNode(Node):
     def __init__(self):
@@ -11,9 +12,14 @@ class YoloDetectorNode(Node):
         
         self.declare_parameter('weights_path', '/home/tranleduy/GPS-Degraded-Localization/YOLOv8n/best.pt')
         self.declare_parameter('publish_annotated_image', True)
+        self.declare_parameter('yolo_every_n_frames', 1)
+        
         weights_path = self.get_parameter('weights_path').value
         self.publish_annotated_image = self.get_parameter('publish_annotated_image').value
+        self.yolo_every_n_frames = self.get_parameter('yolo_every_n_frames').value
+        self.frame_count = 0
         
+        self.add_on_set_parameters_callback(self.parameter_callback)
         self.get_logger().info(f"Loading YOLO model from {weights_path}")
         self.model = YOLO(weights_path)
         self.bridge = CvBridge()
@@ -37,6 +43,10 @@ class YoloDetectorNode(Node):
         self.get_logger().info("yolo_detector started")
 
     def image_cb(self, msg: Image):
+        self.frame_count += 1
+        if self.frame_count % self.yolo_every_n_frames != 0:
+            return
+            
         try:
             cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         except Exception as e:
@@ -85,6 +95,18 @@ class YoloDetectorNode(Node):
                 det_array.detections.append(det)
                 
         self.det_pub.publish(det_array)
+
+    def parameter_callback(self, params):
+        for param in params:
+            if param.name == 'yolo_every_n_frames':
+                val = param.value
+                if val >= 1:
+                    self.yolo_every_n_frames = val
+                    self.get_logger().info(f"Dynamically updated yolo_every_n_frames to {val}")
+                    return SetParametersResult(successful=True)
+                else:
+                    return SetParametersResult(successful=False, reason="yolo_every_n_frames must be >= 1")
+        return SetParametersResult(successful=True)
 
 def main(args=None):
     rclpy.init(args=args)

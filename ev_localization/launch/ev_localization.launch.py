@@ -41,9 +41,27 @@ def generate_launch_description():
         parameters=[params_file]
     )
     
+    # lane_detector node
+    lane_detector_node = Node(
+        package='ev_localization',
+        executable='lane_detector',
+        name='lane_detector',
+        parameters=[params_file]
+    )
+    
+    # uturn_detector node
+    uturn_detector_node = Node(
+        package='ev_localization',
+        executable='uturn_detector',
+        name='uturn_detector',
+        parameters=[params_file]
+    )
+    
     return LaunchDescription([
         gps_monitor_node,
         monocular_vio_node,
         landmark_ghost_node,
-        ekf_fusion_node
+        ekf_fusion_node,
+        lane_detector_node,
+        uturn_detector_node
     ])

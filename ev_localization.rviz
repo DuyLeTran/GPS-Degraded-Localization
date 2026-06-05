@@ -86,6 +86,6 @@ Visualization Manager:
       Distance: 20
       Name: Current View
       Pitch: 0.7
-      Target Frame: odom
+      Target Frame: base_link
       Value: true
       Yaw: 0.7

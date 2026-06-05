@@ -10,7 +10,7 @@ gps_monitor:
     hysteresis_relock_sec: 0.5
     timeout_sec: 10.0
     publish_rate_hz: 10.0
-    use_sim_time: false
+    use_sim_time: true
 
 monocular_vio:
   ros__parameters:
@@ -20,7 +20,7 @@ monocular_vio:
     camera_fy: 600.0
     camera_cx: 320.0
     camera_cy: 240.0
-    use_sim_time: false
+    use_sim_time: true
 
 landmark_ghost:
   ros__parameters:
@@ -36,7 +36,7 @@ landmark_ghost:
     cam_pitch: 0.0
     cam_yaw: -1.5708
     match_dist_thresh: 15.0
-    use_sim_time: false
+    use_sim_time: true
 
 ekf_fusion:
   ros__parameters:
@@ -102,7 +102,7 @@ uturn_detector:
     # Ngưỡng góc quay (độ) để trigger U-turn event
     angle_threshold_deg: 150.0
     # Cửa sổ thời gian (giây) để đánh giá heading change
-    time_window_sec: 10.0
+    time_window_sec: 2.0
     # Cooldown (giây) sau mỗi lần trigger để tránh spam
     cooldown_sec: 5.0
     use_sim_time: true

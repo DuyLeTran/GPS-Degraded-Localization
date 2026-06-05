@@ -10,7 +10,7 @@ source install/setup.bash
 
 # Clean up any residual ROS 2 processes
 echo "Cleaning up any old ROS 2 processes..."
-killall -9 static_transform_publisher ekf_fusion gps_monitor monocular_vio landmark_ghost kitti_odom_converter yolo_detector 2>/dev/null || true
+killall -9 static_transform_publisher ekf_fusion gps_monitor monocular_vio landmark_ghost kitti_odom_converter yolo_detector lane_detector uturn_detector 2>/dev/null || true
 
 # Remove old results bag if it exists
 echo "Cleaning up old recording directories..."
@@ -65,7 +65,7 @@ sleep 5
 
 # 4. Start recording EKF results
 echo "Starting ros2 bag record..."
-ros2 bag record /ekf/pose /ekf/trajectory /gps/status -o data/ekf_result > /tmp/ros2_record.log 2>&1 &
+ros2 bag record /ekf/pose /ekf/trajectory /gps/status /vehicle/lane_status /vehicle/u_turn_event -o data/ekf_result > /tmp/ros2_record.log 2>&1 &
 PID_RECORD=$!
 
 # Wait 2 seconds for record to start
@@ -96,7 +96,7 @@ kill $PID_LAUNCH 2>/dev/null || true
 kill $PID_TF1 2>/dev/null || true
 kill $PID_TF2 2>/dev/null || true
 kill $PID_TF3 2>/dev/null || true
-killall -9 static_transform_publisher ekf_fusion gps_monitor monocular_vio landmark_ghost kitti_odom_converter yolo_detector 2>/dev/null || true
+killall -9 static_transform_publisher ekf_fusion gps_monitor monocular_vio landmark_ghost kitti_odom_converter yolo_detector lane_detector uturn_detector 2>/dev/null || true
 
 echo "=== EKF Result Bag Info ==="
 ros2 bag info data/ekf_result

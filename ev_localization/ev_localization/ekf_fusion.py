@@ -93,6 +93,8 @@ class EkfFusionNode(Node):
         # last_time is set to None; the first odom callback will initialize it
         # and skip the predict step to avoid a spurious large-dt prediction.
         self.last_time = None
+        self.start_time = None
+        self.latest_omega = 0.0
 
         # Handover logic: State machine GPS kết hợp
         self.gps_status = "GPS_GOOD"
@@ -143,6 +145,28 @@ class EkfFusionNode(Node):
         """Callback khi nhận GPS status từ gps_monitor."""
         new_status = msg.data  # "GPS_GOOD", "GPS_DEGRADED", "GPS_LOST"
 
+        # Tính toán elapsed time kể từ thời điểm nhận status đầu tiên
+        now_sec = self.get_clock().now().nanoseconds / 1e9
+        if self.start_time is None:
+            self.start_time = now_sec
+        elapsed = now_sec - self.start_time
+
+        # Nếu mất GPS, in thông báo liên tục trên mỗi callback
+        if new_status == "GPS_LOST":
+            if self.gps_status != "GPS_LOST":
+                # LATCH tọa độ GPS cuối cùng tin cậy và ma trận hiệp phương sai (chỉ làm 1 lần khi chuyển trạng thái)
+                self.gps_last_good = self.x.copy()
+                self.gps_last_good_P = self.P.copy()
+                # Chuyển hoàn toàn sang VO + Landmark
+                self.use_gps = False
+            
+            self.get_logger().error(
+                f"\033[1;31m[{elapsed:.2f}s] GPS LOST: Latching last good pose and covariance, "
+                "switching to VO+Landmark\033[0m")
+            self.gps_status = new_status
+            return
+
+        # Với các trạng thái khác, chỉ xử lý và in thông báo khi thay đổi trạng thái
         if new_status == self.gps_status:
             return
 
@@ -150,38 +174,28 @@ class EkfFusionNode(Node):
             # Bắt đầu chạy VO song song, vẫn dùng GPS nhưng tăng R_gps
             self.R_gps = self.R_gps_default * 3.0
             self.get_logger().warn(
-                "\033[1;33mGPS DEGRADED: Increasing GPS noise, activating VO in parallel\033[0m")
-
-        elif new_status == "GPS_LOST":
-            # LATCH tọa độ GPS cuối cùng tin cậy và ma trận hiệp phương sai
-            self.gps_last_good = self.x.copy()
-            self.gps_last_good_P = self.P.copy()
-            # Chuyển hoàn toàn sang VO + Landmark
-            self.use_gps = False
-            self.get_logger().error(
-                "\033[1;31mGPS LOST: Latching last good pose and covariance, "
-                "switching to VO+Landmark\033[0m")
+                f"\033[1;33m[{elapsed:.2f}s] GPS DEGRADED: Increasing GPS noise, activating VO in parallel\033[0m")
 
         elif self.gps_status == "GPS_LOST" and new_status == "GPS_GOOD":
             # GPS RE-LOCK: Hiệu chỉnh drift tích lũy
             self.use_gps = True
             self.R_gps = self.R_gps_default.copy()
             self.get_logger().info(
-                "\033[1;32mGPS RE-LOCKED: Correcting accumulated drift\033[0m")
+                f"\033[1;32m[{elapsed:.2f}s] GPS RE-LOCKED: Correcting accumulated drift\033[0m")
 
         elif self.gps_status == "GPS_LOST" and new_status == "GPS_DEGRADED":
             # GPS RE-LOCK dưới dạng DEGRADED
             self.use_gps = True
             self.R_gps = self.R_gps_default * 3.0
             self.get_logger().warn(
-                "\033[1;33mGPS RE-LOCKED (DEGRADED): Correcting drift, "
+                f"\033[1;33m[{elapsed:.2f}s] GPS RE-LOCKED (DEGRADED): Correcting drift, "
                 "using scaled GPS noise\033[0m")
 
         elif self.gps_status == "GPS_DEGRADED" and new_status == "GPS_GOOD":
             # Tín hiệu phục hồi từ DEGRADED trở lại GOOD
             self.R_gps = self.R_gps_default.copy()
             self.get_logger().info(
-                "\033[1;32mGPS RECOVERED: Restored to normal noise level\033[0m")
+                f"\033[1;32m[{elapsed:.2f}s] GPS RECOVERED: Restored to normal noise level\033[0m")
 
         self.gps_status = new_status
 
@@ -218,6 +232,7 @@ class EkfFusionNode(Node):
 
         v = msg.twist.twist.linear.x
         omega = msg.twist.twist.angular.z
+        self.latest_omega = omega
 
         x_prev, y_prev, theta_prev = self.x
 
@@ -325,6 +340,14 @@ class EkfFusionNode(Node):
 
     def landmark_callback(self, msg: PoseWithCovarianceStamped):
         """(2) Landmark Update"""
+        # 1. Skip landmark updates if GPS is GOOD (avoid conflict and jitter)
+        if self.gps_status == "GPS_GOOD":
+            return
+            
+        # 2. Skip landmark updates during sharp turns (avoid time-delay and rotation errors)
+        if hasattr(self, 'latest_omega') and abs(self.latest_omega) > 0.15:
+            return
+
         du = msg.pose.pose.position.x
         dv = msg.pose.pose.position.y
         z = np.array([du, dv])
@@ -352,22 +375,37 @@ class EkfFusionNode(Node):
                 return
             H[:, i] = (uv_plus - uv0) / eps
 
+        # Dynamic/Adaptive R_landmark based on distance and confidence
+        confidence = msg.pose.pose.orientation.w
+        confidence = max(0.1, min(1.0, confidence))
+        
+        dx = lm_p3d[0] - self.x[0]
+        dy = lm_p3d[1] - self.x[1]
+        dist = math.hypot(dx, dy)
+        
+        # Scaling factor: proportional to distance, inversely proportional to confidence
+        scale = (dist / 15.0) / confidence
+        scale = max(0.25, min(4.0, scale))
+        
+        R_landmark_adaptive = self.R_landmark * scale
+
         # Calculate innovation covariance S to perform Chi-squared gating check
-        S = H @ self.P @ H.T + self.R_landmark
+        S = H @ self.P @ H.T + R_landmark_adaptive
         try:
             S_inv = np.linalg.inv(S)
         except np.linalg.LinAlgError:
             return
 
-        # Chi-squared gating (2 DOF, 95% confidence threshold is 5.99)
+        # Chi-squared gating (relaxed to 15.0 to accommodate estimated landmark noise)
         mahalanobis_sq = z.T @ S_inv @ z
-        if mahalanobis_sq > 5.99:
+        if mahalanobis_sq > 15.0:
             self.get_logger().warn(
-                f"Landmark update rejected (chi2={mahalanobis_sq:.2f} > 5.99)",
+                f"Landmark update rejected (chi2={mahalanobis_sq:.2f} > 15.0)",
                 throttle_duration_sec=2.0)
             return
 
-        self.generic_update(z, H, self.R_landmark)
+        self.generic_update(z, H, R_landmark_adaptive)
+        self.get_logger().info("Landmark update applied!", throttle_duration_sec=2.0)
 
     def _project_landmark(self, p3d_world, state):
         """Project 3D landmark world → 2D pixel given robot state."""

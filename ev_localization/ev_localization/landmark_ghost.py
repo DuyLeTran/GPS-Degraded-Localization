@@ -57,7 +57,7 @@ class LandmarkGhostNode(Node):
         print("")
         # Resolve relative path to absolute path based on package directory
         if not os.path.isabs(db_path):
-            pkg_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            pkg_dir = '/home/tranleduy/GPS-Degraded-Localization/ev_localization'
             db_path = os.path.join(pkg_dir, db_path)
         
         self.fx = self.get_parameter('fx').value
@@ -88,6 +88,13 @@ class LandmarkGhostNode(Node):
         self.T_bc[:3, 3] = [cam_x, cam_y, cam_z]
         
         self.latest_pose = None
+        
+        # Landmark Recall Stats
+        self.total_visible = 0
+        self.total_matched = 0
+        self.unique_visible = set()
+        self.unique_matched = set()
+        self.stats_timer = self.create_timer(10.0, self.print_stats_cb)
         
         # 3. Subscribers
         self.img_sub = self.create_subscription(Image, '/camera/image_raw', self.image_cb, 10)
@@ -127,8 +134,8 @@ class LandmarkGhostNode(Node):
         pose = self.latest_pose
         x_w, y_w = pose.position.x, pose.position.y
         
-        # (1) Lọc landmark gần EKF Predict trong bán kính 100m
-        nearby_lms = self.db.query_nearby(x_w, y_w, radius=100.0)
+        # (1) Lọc landmark gần EKF Predict trong bán kính 40m
+        nearby_lms = self.db.query_nearby(x_w, y_w, radius=40.0)
         if not nearby_lms:
             return
             
@@ -141,14 +148,24 @@ class LandmarkGhostNode(Node):
             p_c = T_cw @ p_w
             X, Y, Z = p_c[:3]
             
-            # Kiểm tra object ở phía trước camera
-            if Z > 0.1:
+            # Kiểm tra object ở phía trước camera và nằm trong tầm nhìn hiệu dụng (35m)
+            if 0.1 < Z < 35.0:
                 u = self.fx * X / Z + self.cx
                 v = self.fy * Y / Z + self.cy
-                ghosts.append((lm, lm.cls, u, v))
+                # Giới hạn landmark nằm trong khung hình thực tế
+                if 0.0 <= u <= 2.0 * self.cx and 0.0 <= v <= 2.0 * self.cy:
+                    ghosts.append((lm, lm.cls, u, v))
                 
         if not ghosts:
             return
+            
+        # Tăng biến đếm landmarks khả dụng
+        self.total_visible += len(ghosts)
+        matched_ghosts_this_frame = set()
+        
+        # Track unique visible landmarks
+        for lm, _, _, _ in ghosts:
+            self.unique_visible.add(lm.id)
             
         # (4) Match ghost projection với detection thực tế
         for det in msg.detections:
@@ -189,9 +206,33 @@ class LandmarkGhostNode(Node):
                 err_msg.pose.pose.orientation.x = float(best_lm.p3d[0])  # Lx
                 err_msg.pose.pose.orientation.y = float(best_lm.p3d[1])  # Ly
                 err_msg.pose.pose.orientation.z = float(best_lm.p3d[2])  # Lz
-                err_msg.pose.pose.orientation.w = 1.0
+                err_msg.pose.pose.orientation.w = float(det.results[0].hypothesis.score)
                 
                 self.err_pub.publish(err_msg)
+                matched_ghosts_this_frame.add(best_lm.id)
+                self.unique_matched.add(best_lm.id)
+                
+        # Tăng biến đếm landmarks match thành công
+        self.total_matched += len(matched_ghosts_this_frame)
+
+    def print_stats_cb(self):
+        if self.total_visible > 0:
+            recall = (self.total_matched / self.total_visible) * 100.0
+            
+            num_unique_visible = len(self.unique_visible)
+            num_unique_matched = len(self.unique_matched)
+            unique_recall = (num_unique_matched / num_unique_visible * 100.0) if num_unique_visible > 0 else 0.0
+            
+            self.get_logger().info(f"--- LANDMARK RE-ID STATS ---")
+            self.get_logger().info(f"Total Visible (in FOV): {self.total_visible}")
+            self.get_logger().info(f"Total Matched: {self.total_matched}")
+            self.get_logger().info(f"Recall Rate (cumulative): {recall:.2f}%")
+            self.get_logger().info(f"Unique Landmarks Visible: {num_unique_visible}")
+            self.get_logger().info(f"Unique Landmarks Matched: {num_unique_matched}")
+            self.get_logger().info(f"Unique Landmark Recall Rate: {unique_recall:.2f}%")
+            self.get_logger().info(f"-----------------------------")
+        else:
+            self.get_logger().info("--- LANDMARK RE-ID STATS: No visible landmarks in FOV yet. ---")
 
 def main(args=None):
     rclpy.init(args=args)

@@ -103,8 +103,8 @@ class UTurnDetectorNode(Node):
             self.uturn_pub.publish(event_msg)
 
             self.get_logger().warn(
-                f'\033[1;36mU-TURN DETECTED! Δθ = {math.degrees(delta_theta):.1f}° '
-                f'in {now_sec - self.heading_history[0][0]:.2f}s\033[0m')
+                f'U-TURN DETECTED! Δθ = {math.degrees(delta_theta):.1f}° '
+                f'in {now_sec - self.heading_history[0][0]:.2f}s')
 
             # Cập nhật thời điểm trigger cuối cùng
             self.last_trigger_time = now_sec
