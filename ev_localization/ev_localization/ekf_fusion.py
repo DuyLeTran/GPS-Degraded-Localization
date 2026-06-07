@@ -143,11 +143,14 @@ class EkfFusionNode(Node):
         """Callback khi nhận GPS status từ gps_monitor."""
         new_status = msg.data  # "GPS_GOOD", "GPS_DEGRADED", "GPS_LOST"
 
+        if new_status == self.gps_status:
+            return
+
         if self.gps_status == "GPS_GOOD" and new_status == "GPS_DEGRADED":
             # Bắt đầu chạy VO song song, vẫn dùng GPS nhưng tăng R_gps
             self.R_gps = self.R_gps_default * 3.0
             self.get_logger().warn(
-                "GPS DEGRADED: Increasing GPS noise, activating VO in parallel")
+                "\033[1;33mGPS DEGRADED: Increasing GPS noise, activating VO in parallel\033[0m")
 
         elif new_status == "GPS_LOST":
             # LATCH tọa độ GPS cuối cùng tin cậy và ma trận hiệp phương sai
@@ -156,29 +159,29 @@ class EkfFusionNode(Node):
             # Chuyển hoàn toàn sang VO + Landmark
             self.use_gps = False
             self.get_logger().error(
-                "GPS LOST: Latching last good pose and covariance, "
-                "switching to VO+Landmark")
+                "\033[1;31mGPS LOST: Latching last good pose and covariance, "
+                "switching to VO+Landmark\033[0m")
 
         elif self.gps_status == "GPS_LOST" and new_status == "GPS_GOOD":
             # GPS RE-LOCK: Hiệu chỉnh drift tích lũy
             self.use_gps = True
             self.R_gps = self.R_gps_default.copy()
             self.get_logger().info(
-                "GPS RE-LOCKED: Correcting accumulated drift")
+                "\033[1;32mGPS RE-LOCKED: Correcting accumulated drift\033[0m")
 
         elif self.gps_status == "GPS_LOST" and new_status == "GPS_DEGRADED":
             # GPS RE-LOCK dưới dạng DEGRADED
             self.use_gps = True
             self.R_gps = self.R_gps_default * 3.0
             self.get_logger().warn(
-                "GPS RE-LOCKED (DEGRADED): Correcting drift, "
-                "using scaled GPS noise")
+                "\033[1;33mGPS RE-LOCKED (DEGRADED): Correcting drift, "
+                "using scaled GPS noise\033[0m")
 
         elif self.gps_status == "GPS_DEGRADED" and new_status == "GPS_GOOD":
             # Tín hiệu phục hồi từ DEGRADED trở lại GOOD
             self.R_gps = self.R_gps_default.copy()
             self.get_logger().info(
-                "GPS RECOVERED: Restored to normal noise level")
+                "\033[1;32mGPS RECOVERED: Restored to normal noise level\033[0m")
 
         self.gps_status = new_status
 

@@ -96,7 +96,7 @@ class GpsMonitorNode(Node):
         # 1. Kiểm tra timeout (10s không có fix) -> Chuyển sang LOST ngay lập tức
         if time_since_last_fix > self.timeout_sec:
             if self.current_state != GpsState.GPS_LOST:
-                self.get_logger().warn('GPS timeout (>10s). Transitioning to GPS_LOST!')
+                self.get_logger().warn('\033[1;31mGPS timeout (>10s). Transitioning to GPS_LOST!\033[0m')
                 self.current_state = GpsState.GPS_LOST
                 self.target_state = GpsState.GPS_LOST
                 self.state_change_start_time = None
@@ -122,9 +122,15 @@ class GpsMonitorNode(Node):
                     required_dur = self.hysteresis_dur     # 2s: default (GOOD→DEGRADED)
                     
                 if time_in_target >= required_dur:
+                    color = "\033[1;32m"  # default bold green (for GOOD state recovery)
+                    if self.target_state == GpsState.GPS_LOST:
+                        color = "\033[1;31m"  # bold red
+                    elif self.target_state == GpsState.GPS_DEGRADED:
+                        color = "\033[1;33m"  # bold yellow
+                    
                     self.get_logger().info(
-                        f"State change: {self.current_state.value} -> {self.target_state.value} "
-                        f"(HDOP={self.current_hdop:.2f}, Sats={self.current_sats})"
+                        f"{color}State change: {self.current_state.value} -> {self.target_state.value} "
+                        f"(HDOP={self.current_hdop:.2f}, Sats={self.current_sats})\033[0m"
                     )
                     self.current_state = self.target_state
                     self.state_change_start_time = None

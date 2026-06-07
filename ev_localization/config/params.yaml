@@ -77,4 +77,32 @@ ekf_fusion:
     camera_fy: 600.0
     camera_cx: 320.0
     camera_cy: 240.0
-    use_sim_time: false
+    use_sim_time: true
+
+lane_detector:
+  ros__parameters:
+    # ROI: tỷ lệ chiều cao ảnh bắt đầu crop (0.6 = lấy 40% dưới cùng)
+    roi_top_ratio: 0.6
+    # Canny thresholds
+    canny_low: 50
+    canny_high: 150
+    # HoughLinesP parameters
+    hough_threshold: 50
+    hough_min_line_length: 50
+    hough_max_line_gap: 150
+    # Slope filter range (loại bỏ đường gần ngang hoặc gần đứng)
+    slope_min: 0.3
+    slope_max: 3.0
+    # Publish debug image (true để xem trong RViz)
+    publish_debug_image: true
+    use_sim_time: true
+
+uturn_detector:
+  ros__parameters:
+    # Ngưỡng góc quay (độ) để trigger U-turn event
+    angle_threshold_deg: 150.0
+    # Cửa sổ thời gian (giây) để đánh giá heading change
+    time_window_sec: 10.0
+    # Cooldown (giây) sau mỗi lần trigger để tránh spam
+    cooldown_sec: 5.0
+    use_sim_time: true
