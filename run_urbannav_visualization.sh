@@ -33,14 +33,20 @@ echo "Launching rqt_image_view..."
 rqt_image_view -geometry 960x500+960+0 /lane/debug_image --ros-args -p use_sim_time:=true > /tmp/rqt_image_view_urbannav.log 2>&1 &
 PID_RQT=$!
 
-# 3. Khởi chạy Windows Terminal ở góc dưới bên phải màn hình (chia làm 4 ô)
-echo "Launching Windows Terminal Dashboard..."
-wt.exe --pos 960,520 --size 115,25 \
-  new-tab -p "Ubuntu-24.04" -d "\\\\wsl.localhost\\Ubuntu-24.04\\home\\tranleduy\\GPS-Degraded-Localization" wsl.exe -d Ubuntu-24.04 -e bash -c "source /opt/ros/jazzy/setup.bash && source install/setup.bash && ros2 launch ev_localization ev_localization_urbannav.launch.py; exec bash" \; \
-  split-pane -V -p "Ubuntu-24.04" -d "\\\\wsl.localhost\\Ubuntu-24.04\\home\\tranleduy\\GPS-Degraded-Localization" wsl.exe -d Ubuntu-24.04 -e bash -c "source /opt/ros/jazzy/setup.bash && source install/setup.bash && ros2 run ev_localization yolo_detector --ros-args -p use_sim_time:=true --remap /camera/image_raw:=/zed2/camera/left/image_raw; exec bash" \; \
-  split-pane -H -p "Ubuntu-24.04" -d "\\\\wsl.localhost\\Ubuntu-24.04\\home\\tranleduy\\GPS-Degraded-Localization" wsl.exe -d Ubuntu-24.04 -e bash -c "source /opt/ros/jazzy/setup.bash && source install/setup.bash && sleep 5 && ros2 topic hz /ekf/pose; exec bash" \; \
-  focus-pane -t 0 \; \
-  split-pane -H -p "Ubuntu-24.04" -d "\\\\wsl.localhost\\Ubuntu-24.04\\home\\tranleduy\\GPS-Degraded-Localization" wsl.exe -d Ubuntu-24.04 -e bash -c "source /opt/ros/jazzy/setup.bash && source install/setup.bash && sleep 7 && ros2 bag play data/UrbanNav_dataset/whampoa_ros2_bag --clock --rate 1.0 --start-offset 535; exec bash"
+# 3. Khởi chạy các tiến trình nền (YOLO và Bag Play)
+echo "Launching yolo_detector in the background..."
+ros2 run ev_localization yolo_detector --ros-args -p use_sim_time:=true --remap /camera/image_raw:=/zed2/camera/left/image_raw > /tmp/yolo_detector_urbannav.log 2>&1 &
+PID_YOLO=$!
+
+echo "Launching ros2 bag play in the background (with 7s delay)..."
+(sleep 7 && ros2 bag play data/UrbanNav_dataset/whampoa_ros2_bag --clock --rate 1.0 --start-offset 110 > /tmp/bag_play_urbannav.log 2>&1) &
+PID_BAG=$!
+
+# 4. Khởi chạy 2 cửa sổ Windows Terminal riêng biệt (cho Launch và Hz)
+echo "Launching 2 separate Windows Terminal windows..."
+wt.exe -w new -p "Ubuntu-24.04" wsl.exe -d Ubuntu-24.04 -e bash -c "/home/tranleduy/GPS-Degraded-Localization/run_launch.sh"
+sleep 1
+wt.exe -w new -p "Ubuntu-24.04" wsl.exe -d Ubuntu-24.04 -e bash -c "/home/tranleduy/GPS-Degraded-Localization/run_hz.sh"
 
 # Chờ tiến trình nền kết thúc
 wait $PID_RVIZ

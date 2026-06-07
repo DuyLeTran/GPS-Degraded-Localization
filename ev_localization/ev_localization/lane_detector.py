@@ -57,9 +57,15 @@ class LaneDetectorNode(Node):
 
         # Khởi tạo CvBridge để chuyển đổi giữa ROS Image và OpenCV
         self.bridge = CvBridge()
+        self.start_time = None
 
     def image_callback(self, msg):
         """Callback xử lý ảnh từ camera: phát hiện làn đường bằng Canny + HoughLinesP."""
+        now_sec = self.get_clock().now().nanoseconds / 1e9
+        if self.start_time is None:
+            self.start_time = now_sec
+        elapsed = now_sec - self.start_time
+
         try:
             # Chuyển đổi ROS Image sang OpenCV
             cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
@@ -99,7 +105,7 @@ class LaneDetectorNode(Node):
             self.status_pub.publish(status_msg)
 
             self.get_logger().info(
-                f'Lane status: {status}', throttle_duration_sec=2.0)
+                f'[{elapsed:.2f}s] Lane status: {status}', throttle_duration_sec=2.0)
 
             # Publish ảnh debug nếu được bật
             if self.publish_debug_image:

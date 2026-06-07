@@ -43,6 +43,7 @@ class UTurnDetectorNode(Node):
         self.last_time = None
         # Thời điểm trigger U-turn cuối cùng (để kiểm tra cooldown)
         self.last_trigger_time = None
+        self.start_time = None
 
         self.get_logger().info(
             f'UTurn params: angle_threshold={self.angle_threshold_deg}°, '
@@ -74,6 +75,9 @@ class UTurnDetectorNode(Node):
 
         # Chuyển thời gian hiện tại sang giây (float)
         now_sec = current_time.nanoseconds / 1e9
+        if self.start_time is None:
+            self.start_time = now_sec
+        elapsed = now_sec - self.start_time
 
         # Thêm vào lịch sử sliding window
         self.heading_history.append((now_sec, self.accumulated_theta))
@@ -103,8 +107,8 @@ class UTurnDetectorNode(Node):
             self.uturn_pub.publish(event_msg)
 
             self.get_logger().warn(
-                f'U-TURN DETECTED! Δθ = {math.degrees(delta_theta):.1f}° '
-                f'in {now_sec - self.heading_history[0][0]:.2f}s')
+                f'\033[1;36m[{elapsed:.2f}s] U-TURN DETECTED! Δθ = {math.degrees(delta_theta):.1f}° '
+                f'in {now_sec - self.heading_history[0][0]:.2f}s\033[0m')
 
             # Cập nhật thời điểm trigger cuối cùng
             self.last_trigger_time = now_sec

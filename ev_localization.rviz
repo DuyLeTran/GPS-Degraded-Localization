@@ -1,20 +1,11 @@
 Panels:
   - Class: rviz_common/Displays
-    Help Height: 78
+    Help Height: 70
     Name: Displays
-    Property Grid State:
-      expanded:
-        - ~
-        - ~/Grid1
-        - ~/TF1
-        - ~/Trajectory1
-        - ~/Pose1
-      split:
-        half: 0.5
-        value: 150
-    Splitter Distances:
-      - 150
-      - 550
+    Property Tree Widget:
+      Expanded: ~
+      Splitter Ratio: 0.5
+    Tree Height: 70
 Visualization Manager:
   Class: ""
   Displays:
@@ -23,44 +14,106 @@ Visualization Manager:
       Class: rviz_default_plugins/Grid
       Color: 160; 160; 160
       Enabled: true
+      Line Style:
+        Line Width: 0.029999999329447746
+        Value: Lines
       Name: Grid
+      Normal Cell Count: 0
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
       Plane: XY
+      Plane Cell Count: 10
       Reference Frame: <Fixed Frame>
       Value: true
     - Class: rviz_default_plugins/TF
       Enabled: true
+      Filter (blacklist): ""
+      Filter (whitelist): ""
+      Frame Timeout: 15
+      Frames:
+        All Enabled: true
+        base_link:
+          Value: true
+        camera_link:
+          Value: true
+        gps_link:
+          Value: true
+        map:
+          Value: true
+        odom:
+          Value: true
+      Marker Scale: 1
       Name: TF
+      Show Arrows: true
       Show Axes: true
       Show Names: true
+      Tree:
+        map:
+          odom:
+            base_link:
+              camera_link:
+                {}
+              gps_link:
+                {}
+      Update Interval: 0
       Value: true
-    - Class: rviz_default_plugins/Path
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
       Color: 0; 255; 0
       Enabled: true
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
       Line Style: Billboards
-      Line Width: 0.05
+      Line Width: 0.05000000074505806
       Name: Trajectory
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
       Topic:
         Depth: 5
         Durability Policy: Volatile
+        Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /ekf/trajectory
       Value: true
-    - Class: rviz_default_plugins/Pose
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.10000000149011612
+      Class: rviz_default_plugins/Pose
       Color: 255; 0; 0
       Enabled: true
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
       Name: Pose
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
       Shape: Arrow
       Topic:
         Depth: 5
         Durability Policy: Volatile
+        Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /ekf/pose
       Value: true
     - Class: rviz_default_plugins/Image
       Enabled: true
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
       Name: YOLO_Annotated_Image
+      Normalize Range: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -68,8 +121,21 @@ Visualization Manager:
         Reliability Policy: Best Effort
         Value: /camera/image_annotated
       Value: true
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: Image
+      Normalize Range: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /lane/debug_image
+      Value: true
   Enabled: true
-  Fixed Frame: odom
   Global Options:
     Background Color: 48; 48; 48
     Fixed Frame: odom
@@ -77,15 +143,47 @@ Visualization Manager:
   Name: root
   Tools:
     - Class: rviz_default_plugins/Interact
+      Hide Inactive Objects: true
     - Class: rviz_default_plugins/MoveCamera
     - Class: rviz_default_plugins/Select
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
   Value: true
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 20
+      Distance: 178.98289489746094
+      Enable Stereo Rendering:
+        Stereo Eye Separation: 0.05999999865889549
+        Stereo Focal Distance: 1
+        Swap Stereo Eyes: false
+        Value: false
+      Focal Point:
+        X: -0.06204380840063095
+        Y: 18.92890167236328
+        Z: -14.421266555786133
+      Focal Shape Fixed Size: true
+      Focal Shape Size: 0.05000000074505806
+      Invert Z Axis: false
       Name: Current View
-      Pitch: 0.7
+      Near Clip Distance: 0.009999999776482582
+      Pitch: 0.699999988079071
       Target Frame: base_link
       Value: true
-      Yaw: 0.7
+      Yaw: 0.699999988079071
+    Saved: ~
+Window Geometry:
+  Displays:
+    collapsed: false
+  Height: 1359
+  Hide Left Dock: false
+  Hide Right Dock: false
+  Image:
+    collapsed: false
+  QMainWindow State: 000000ff00000000fd000000010000000000000156000004f9fc0200000003fb000000280059004f004c004f005f0041006e006e006f00740061007400650064005f0049006d006100670065010000003b000002660000001600fffffffb000000100044006900730070006c00610079007301000002a7000000c7000000c700fffffffb0000000a0049006d0061006700650100000374000001c00000001600ffffff00000398000004f900000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  Width: 1268
+  X: -24
+  Y: -28
+  YOLO_Annotated_Image:
+    collapsed: false

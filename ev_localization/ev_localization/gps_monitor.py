@@ -45,6 +45,7 @@ class GpsMonitorNode(Node):
         self.last_fix_time = self.get_clock().now()
         self.current_hdop = float('inf')
         self.current_sats = 0
+        self.start_time = None
         
         # Publisher và Subscriber
         self.status_pub = self.create_publisher(String, '/gps/status', 10)
@@ -91,12 +92,17 @@ class GpsMonitorNode(Node):
 
     def timer_callback(self):
         now = self.get_clock().now()
+        now_sec = now.nanoseconds / 1e9
+        if self.start_time is None:
+            self.start_time = now_sec
+        elapsed = now_sec - self.start_time
+
         time_since_last_fix = (now - self.last_fix_time).nanoseconds / 1e9
         
         # 1. Kiểm tra timeout (10s không có fix) -> Chuyển sang LOST ngay lập tức
         if time_since_last_fix > self.timeout_sec:
             if self.current_state != GpsState.GPS_LOST:
-                self.get_logger().warn('\033[1;31mGPS timeout (>10s). Transitioning to GPS_LOST!\033[0m')
+                self.get_logger().warn(f'\033[1;31m[{elapsed:.2f}s] GPS timeout (>10s). Transitioning to GPS_LOST!\033[0m')
                 self.current_state = GpsState.GPS_LOST
                 self.target_state = GpsState.GPS_LOST
                 self.state_change_start_time = None
@@ -129,7 +135,7 @@ class GpsMonitorNode(Node):
                         color = "\033[1;33m"  # bold yellow
                     
                     self.get_logger().info(
-                        f"{color}State change: {self.current_state.value} -> {self.target_state.value} "
+                        f"{color}[{elapsed:.2f}s] State change: {self.current_state.value} -> {self.target_state.value} "
                         f"(HDOP={self.current_hdop:.2f}, Sats={self.current_sats})\033[0m"
                     )
                     self.current_state = self.target_state

@@ -94,7 +94,6 @@ class EkfFusionNode(Node):
         # and skip the predict step to avoid a spurious large-dt prediction.
         self.last_time = None
         self.start_time = None
-        self.latest_omega = 0.0
 
         # Handover logic: State machine GPS kết hợp
         self.gps_status = "GPS_GOOD"
@@ -232,7 +231,6 @@ class EkfFusionNode(Node):
 
         v = msg.twist.twist.linear.x
         omega = msg.twist.twist.angular.z
-        self.latest_omega = omega
 
         x_prev, y_prev, theta_prev = self.x
 
@@ -340,14 +338,6 @@ class EkfFusionNode(Node):
 
     def landmark_callback(self, msg: PoseWithCovarianceStamped):
         """(2) Landmark Update"""
-        # 1. Skip landmark updates if GPS is GOOD (avoid conflict and jitter)
-        if self.gps_status == "GPS_GOOD":
-            return
-            
-        # 2. Skip landmark updates during sharp turns (avoid time-delay and rotation errors)
-        if hasattr(self, 'latest_omega') and abs(self.latest_omega) > 0.15:
-            return
-
         du = msg.pose.pose.position.x
         dv = msg.pose.pose.position.y
         z = np.array([du, dv])
@@ -375,37 +365,22 @@ class EkfFusionNode(Node):
                 return
             H[:, i] = (uv_plus - uv0) / eps
 
-        # Dynamic/Adaptive R_landmark based on distance and confidence
-        confidence = msg.pose.pose.orientation.w
-        confidence = max(0.1, min(1.0, confidence))
-        
-        dx = lm_p3d[0] - self.x[0]
-        dy = lm_p3d[1] - self.x[1]
-        dist = math.hypot(dx, dy)
-        
-        # Scaling factor: proportional to distance, inversely proportional to confidence
-        scale = (dist / 15.0) / confidence
-        scale = max(0.25, min(4.0, scale))
-        
-        R_landmark_adaptive = self.R_landmark * scale
-
         # Calculate innovation covariance S to perform Chi-squared gating check
-        S = H @ self.P @ H.T + R_landmark_adaptive
+        S = H @ self.P @ H.T + self.R_landmark
         try:
             S_inv = np.linalg.inv(S)
         except np.linalg.LinAlgError:
             return
 
-        # Chi-squared gating (relaxed to 15.0 to accommodate estimated landmark noise)
+        # Chi-squared gating (2 DOF, 95% confidence threshold is 5.99)
         mahalanobis_sq = z.T @ S_inv @ z
-        if mahalanobis_sq > 15.0:
+        if mahalanobis_sq > 5.99:
             self.get_logger().warn(
-                f"Landmark update rejected (chi2={mahalanobis_sq:.2f} > 15.0)",
+                f"Landmark update rejected (chi2={mahalanobis_sq:.2f} > 5.99)",
                 throttle_duration_sec=2.0)
             return
 
-        self.generic_update(z, H, R_landmark_adaptive)
-        self.get_logger().info("Landmark update applied!", throttle_duration_sec=2.0)
+        self.generic_update(z, H, self.R_landmark)
 
     def _project_landmark(self, p3d_world, state):
         """Project 3D landmark world → 2D pixel given robot state."""

@@ -10,7 +10,7 @@ class YoloDetectorNode(Node):
     def __init__(self):
         super().__init__('yolo_detector')
         
-        self.declare_parameter('weights_path', '/home/tranleduy/GPS-Degraded-Localization/YOLOv8n/best.pt')
+        self.declare_parameter('weights_path', '/home/tranleduy/GPS-Degraded-Localization/YOLOv8n/best.onnx')
         self.declare_parameter('publish_annotated_image', True)
         self.declare_parameter('yolo_every_n_frames', 1)
         
@@ -53,7 +53,8 @@ class YoloDetectorNode(Node):
             self.get_logger().error(f"Failed to convert image: {e}")
             return
             
-        results = self.model(cv_image, verbose=False)
+        # Run inference using ONNX Runtime (CPUExecutionProvider) by setting device='cpu'
+        results = self.model(cv_image, device='cpu', verbose=False)
         
         det_array = Detection2DArray()
         det_array.header = msg.header
