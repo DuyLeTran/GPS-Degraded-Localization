@@ -106,14 +106,14 @@ stateDiagram-v2
 
 *   **Transition Delay (degraded to lost):** When HDOP exceeds the lost threshold (>20.0), the system still maintains a Hysteresis delay (`hysteresis_duration_sec` = 2.0s) to avoid reacting to transient noise. However, if there is a complete loss of signal (no GPS fix message received) exceeding `timeout_sec` (10s), the system transitions to `GPS_LOST` instantly.
 *   **Coordinate Latching on GPS Loss:** When the state transitions to `GPS_LOST`, the system latches the last high-confidence WGS84 coordinate of the vehicle and its corresponding covariance matrix:
-    $$
+    ```math
     \mathbf{x}_{\text{latch}} = \mathbf{x}_{t_{\text{last\_good}}}, \quad \mathbf{P}_{\text{latch}} = \mathbf{P}_{t_{\text{last\_good}}}
-    $$
+    ```
     From this point onward, the EKF disables all updates from the GPS and switches entirely to local dead-reckoning and visual landmark updates. These latched variables are used to analyze handover latency.
 *   **Seamless Coordinate Handover:** The system maintains a local origin frame (`odom`). The EKF stores the initial yaw offset `initial_yaw` to rotate GPS ENU (East-North-Up) coordinates into alignment with the local odom frame from $t=0$:
-    $$
+    ```math
     \mathbf{p}_{\text{local}} = \mathbf{R}(-\theta_{\text{initial}}) \cdot \mathbf{p}_{\text{ENU}}
-    $$
+    ```
     This ensures that when GPS signal is lost or re-acquired, the trajectory does not experience coordinate jumps or heading rotation discontinuities.
 
 ### 2.2 Extended Kalman Filter (EKF)
@@ -121,44 +121,44 @@ The EKF estimates a 2D state vector of the electric vehicle: $\mathbf{x} = [x, y
 
 #### A. Predict Step
 Motion integration uses Mid-point Integration from Wheel Odometry (linear velocity $v$, angular velocity $\omega$):
-$$
+```math
 \theta_{\text{mid}} = \theta_{k-1} + \omega \frac{dt}{2}
-$$
-$$
+```
+```math
 \mathbf{x}_k^- = \begin{bmatrix} x_{k-1} + v dt \cos(\theta_{\text{mid}}) \\ y_{k-1} + v dt \sin(\theta_{\text{mid}}) \\ \theta_{k-1} + \omega dt \end{bmatrix}
-$$
+```
 
 Motion Jacobian $F_k$:
-$$
+```math
 F_k = \begin{bmatrix} 1 & 0 & -v dt \sin(\theta_{\text{mid}}) \\ 0 & 1 & v dt \cos(\theta_{\text{mid}}) \\ 0 & 0 & 1 \end{bmatrix}
-$$
+```
 
 **Process Noise Discretization:**
 To ensure mathematical correctness across variable sensor rates, the continuous-time process noise covariance $Q_c$ is discretized dynamically according to the sampling period $dt$:
-$$
+```math
 Q_d = Q_c \cdot dt = \text{diag}(q_x, q_y, q_{\theta}) \cdot dt
-$$
-$$
+```
+```math
 \mathbf{P}_k^- = F_k \mathbf{P}_{k-1} F_k^T + Q_d
-$$
+```
 
 #### B. Update Step
 The update step depends on the GPS status received from the Monitor:
 1.  **`GPS_GOOD` mode:** Measures $\mathbf{z}_k^{\text{GPS}} = [x_{\text{gps}}, y_{\text{gps}}]^T$. Measurement matrix $H = \begin{bmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \end{bmatrix}$. Noise covariance $R = R_{\text{gps}}$.
 2.  **`GPS_DEGRADED` mode:** EKF runs in parallel with visual landmark updates, while scaling the GPS measurement noise covariance up by 3x to reduce its confidence weight:
-    $$
+    ```math
     R = 3.0 \cdot R_{\text{gps\_default}}
-    $$
+    ```
 3.  **`GPS_LOST` mode:** The system completely disables GPS updates and relies solely on visual Landmark updates.
 
 #### C. Covariance Clamping
 During long GPS outages, the covariance matrix $\mathbf{P}$ tends to grow unboundedly. The system normalizes and clamps the diagonal elements of $\mathbf{P}$ to a parameterized `max_covariance` limit while preserving the correlation structure:
-$$
+```math
 \text{If } \mathbf{P}_{i,i} > P_{\text{max}} \implies \text{scale} = \sqrt{\frac{P_{\text{max}}}{\mathbf{P}_{i,i}}}
-$$
-$$
+```
+```math
 \mathbf{P}_{i,*} \leftarrow \mathbf{P}_{i,*} \cdot \text{scale}, \quad \mathbf{P}_{*,i} \leftarrow \mathbf{P}_{*,i} \cdot \text{scale}
-$$
+```
 
 ---
 
@@ -167,36 +167,36 @@ When the camera detects a landmark (static vehicle), the `landmark_ghost` node m
 
 #### A. Ghost Projection
 Landmark $L_i$ has 3D coordinates in the ENU frame $\mathbf{p}_{\text{3D}} = [L_x, L_y, L_z]^T$. Given the predicted robot pose $\mathbf{x}_k^- = [x, y, \theta]^T$, the landmark is transformed into the camera frame using camera extrinsics $T_{\text{bc}}$ (extrinsic parameters):
-$$
+```math
 \mathbf{p}_{\text{camera}} = \mathbf{T}_{cw}(\mathbf{x}_k^-) \cdot \begin{bmatrix} L_x \\ L_y \\ L_z \\ 1 \end{bmatrix} = \begin{bmatrix} X_c \\ Y_c \\ Z_c \\ 1 \end{bmatrix}
-$$
+```
 
 Using the pinhole camera model, it is projected onto the 2D image plane:
-$$
+```math
 u = f_x \frac{X_c}{Z_c} + c_x, \quad v = f_y \frac{Y_c}{Z_c} + c_y
-$$
+```
 
 #### B. Reprojection Error & EKF Update
 The difference between the actual YOLO bounding box center $(u_{det}, v_{det})$ and the projected ghost point $(u, v)$ forms the EKF measurement:
-$$
+```math
 \mathbf{z}_k^{\text{landmark}} = \begin{bmatrix} u_{\text{det}} - u \\ v_{\text{det}} - v \end{bmatrix}
-$$
+```
 
 Since the camera projection model is highly non-linear, the measurement Jacobian $H_{\text{landmark}}$ is computed using the **Numerical Jacobian** method with $\epsilon = 10^{-5}$:
-$$
+```math
 H_{\text{landmark}}[:, j] = \frac{\text{Project}(\mathbf{p}_{3D}, \mathbf{x} + \epsilon \cdot \mathbf{e}_j) - \text{Project}(\mathbf{p}_{3D}, \mathbf{x})}{\epsilon}
-$$
+```
 
 #### C. Adaptive Measurement Noise & Chi-squared Gating
 *   **Adaptive R:** Landmark measurement noise covariance is dynamically scaled based on distance and YOLO detection confidence:
-    $$
+    ```math
     R_{\text{adaptive}} = R_{\text{default}} \cdot \frac{d_{\text{dist}} / 15.0}{\text{confidence}_{\text{yolo}}}
-    $$
+    ```
     *Mathematical Rationale:* Faraway objects suffer from higher angular-to-pixel uncertainty (larger projection error). Low YOLO detection confidence indicates bounding box instability, so the system automatically increases measurement noise covariance, causing EKF to rely more on the motion model.
 *   **Chi-squared Gating:** To reject data association mismatches (outliers), a Mahalanobis distance check is performed before updating the EKF:
-    $$
+    ```math
     D_M^2 = (\mathbf{z}_k^{\text{landmark}})^T \mathbf{S}^{-1} \mathbf{z}_k^{\text{landmark}} \le 15.0
-    $$
+    ```
     Where $\mathbf{S} = H \mathbf{P} H^T + R_{\text{adaptive}}$. If $D_M^2 > 15.0$, the measurement is rejected.
 
 ---
@@ -440,9 +440,9 @@ If you prefer to measure individual KPIs manually, the methods are defined as fo
 *   **B3 (U-turn Detection Latency):** Calculated by subtracting the timestamp when the physical vehicle yaw change reached 150° from the time the `U-TURN DETECTED` warning was logged.
 *   **B4 (Lane Positioning Accuracy):** Evaluated by projecting the 2D position error vector onto the normal of the reference trajectory heading. Poses with a lateral offset $|e_{\text{lateral}}| \le 1.5\text{ m}$ (half of the physical lane width) are counted as correct lane alignment.
 *   **B5 (Garage / GPS-Denied Localization):** Evaluated by measuring the translation drift over distance traveled during specific simulated GPS outages (Outage 1: 120s–145s, Outage 2: 230s–250s). Drift Rate (%) is calculated as:
-    $$
+    ```math
     \text{Drift Rate} = \frac{\text{Translation Error at End of Outage}}{\text{Distance Traveled during Outage}} \times 100\%
-    $$
+    ```
 *   **B6 (GPS Handover Latency):** Evaluated from `/gps/status` transitions (`GPS_LOST` to `GPS_GOOD`) inside the rosbag. You can run the dedicated measurement script:
     ```bash
     python3 ev_localization/evaluation/measure_handover_latency.py data/urbannav_ekf_result
