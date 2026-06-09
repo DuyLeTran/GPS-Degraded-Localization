@@ -106,10 +106,14 @@ stateDiagram-v2
 
 *   **Transition Delay (degraded to lost):** When HDOP exceeds the lost threshold (>20.0), the system still maintains a Hysteresis delay (`hysteresis_duration_sec` = 2.0s) to avoid reacting to transient noise. However, if there is a complete loss of signal (no GPS fix message received) exceeding `timeout_sec` (10s), the system transitions to `GPS_LOST` instantly.
 *   **Coordinate Latching on GPS Loss:** When the state transitions to `GPS_LOST`, the system latches the last high-confidence WGS84 coordinate of the vehicle and its corresponding covariance matrix:
-    $$\mathbf{x}_{latch} = \mathbf{x}_{t_{last\_good}}, \quad \mathbf{P}_{latch} = \mathbf{P}_{t_{last\_good}}$$
+    $$
+    \mathbf{x}_{\text{latch}} = \mathbf{x}_{t_{\text{last\_good}}}, \quad \mathbf{P}_{\text{latch}} = \mathbf{P}_{t_{\text{last\_good}}}
+    $$
     From this point onward, the EKF disables all updates from the GPS and switches entirely to local dead-reckoning and visual landmark updates. These latched variables are used to analyze handover latency.
 *   **Seamless Coordinate Handover:** The system maintains a local origin frame (`odom`). The EKF stores the initial yaw offset `initial_yaw` to rotate GPS ENU (East-North-Up) coordinates into alignment with the local odom frame from $t=0$:
-    $$\mathbf{p}_{local} = \mathbf{R}(-\theta_{initial}) \cdot \mathbf{p}_{ENU}$$
+    $$
+    \mathbf{p}_{\text{local}} = \mathbf{R}(-\theta_{\text{initial}}) \cdot \mathbf{p}_{\text{ENU}}
+    $$
     This ensures that when GPS signal is lost or re-acquired, the trajectory does not experience coordinate jumps or heading rotation discontinuities.
 
 ### 2.2 Extended Kalman Filter (EKF)
@@ -117,28 +121,44 @@ The EKF estimates a 2D state vector of the electric vehicle: $\mathbf{x} = [x, y
 
 #### A. Predict Step
 Motion integration uses Mid-point Integration from Wheel Odometry (linear velocity $v$, angular velocity $\omega$):
-$$\theta_{mid} = \theta_{k-1} + \omega \frac{dt}{2}$$
-$$\mathbf{x}_k^- = \begin{bmatrix} x_{k-1} + v dt \cos(\theta_{mid}) \\ y_{k-1} + v dt \sin(\theta_{mid}) \\ \theta_{k-1} + \omega dt \end{bmatrix}$$
+$$
+\theta_{\text{mid}} = \theta_{k-1} + \omega \frac{dt}{2}
+$$
+$$
+\mathbf{x}_k^- = \begin{bmatrix} x_{k-1} + v dt \cos(\theta_{\text{mid}}) \\ y_{k-1} + v dt \sin(\theta_{\text{mid}}) \\ \theta_{k-1} + \omega dt \end{bmatrix}
+$$
 
 Motion Jacobian $F_k$:
-$$F_k = \begin{bmatrix} 1 & 0 & -v dt \sin(\theta_{mid}) \\ 0 & 1 & v dt \cos(\theta_{mid}) \\ 0 & 0 & 1 \end{bmatrix}$$
+$$
+F_k = \begin{bmatrix} 1 & 0 & -v dt \sin(\theta_{\text{mid}}) \\ 0 & 1 & v dt \cos(\theta_{\text{mid}}) \\ 0 & 0 & 1 \end{bmatrix}
+$$
 
 **Process Noise Discretization:**
 To ensure mathematical correctness across variable sensor rates, the continuous-time process noise covariance $Q_c$ is discretized dynamically according to the sampling period $dt$:
-$$Q_d = Q_c \cdot dt = \text{diag}(q_x, q_y, q_\theta) \cdot dt$$
-$$\mathbf{P}_k^- = F_k \mathbf{P}_{k-1} F_k^T + Q_d$$
+$$
+Q_d = Q_c \cdot dt = \text{diag}(q_x, q_y, q_{\theta}) \cdot dt
+$$
+$$
+\mathbf{P}_k^- = F_k \mathbf{P}_{k-1} F_k^T + Q_d
+$$
 
 #### B. Update Step
 The update step depends on the GPS status received from the Monitor:
-1.  **`GPS_GOOD` mode:** Measures $\mathbf{z}_k^{GPS} = [x_{gps}, y_{gps}]^T$. Measurement matrix $H = \begin{bmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \end{bmatrix}$. Noise covariance $R = R_{gps}$.
+1.  **`GPS_GOOD` mode:** Measures $\mathbf{z}_k^{\text{GPS}} = [x_{\text{gps}}, y_{\text{gps}}]^T$. Measurement matrix $H = \begin{bmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \end{bmatrix}$. Noise covariance $R = R_{\text{gps}}$.
 2.  **`GPS_DEGRADED` mode:** EKF runs in parallel with visual landmark updates, while scaling the GPS measurement noise covariance up by 3x to reduce its confidence weight:
-    $$R = 3.0 \cdot R_{gps\_default}$$
+    $$
+    R = 3.0 \cdot R_{\text{gps\_default}}
+    $$
 3.  **`GPS_LOST` mode:** The system completely disables GPS updates and relies solely on visual Landmark updates.
 
 #### C. Covariance Clamping
 During long GPS outages, the covariance matrix $\mathbf{P}$ tends to grow unboundedly. The system normalizes and clamps the diagonal elements of $\mathbf{P}$ to a parameterized `max_covariance` limit while preserving the correlation structure:
-$$\text{If } \mathbf{P}_{i,i} > P_{max} \implies \text{scale} = \sqrt{\frac{P_{max}}{\mathbf{P}_{i,i}}}$$
-$$\mathbf{P}_{i,*} \leftarrow \mathbf{P}_{i,*} \cdot \text{scale}, \quad \mathbf{P}_{*,i} \leftarrow \mathbf{P}_{*,i} \cdot \text{scale}$$
+$$
+\text{If } \mathbf{P}_{i,i} > P_{\text{max}} \implies \text{scale} = \sqrt{\frac{P_{\text{max}}}{\mathbf{P}_{i,i}}}
+$$
+$$
+\mathbf{P}_{i,*} \leftarrow \mathbf{P}_{i,*} \cdot \text{scale}, \quad \mathbf{P}_{*,i} \leftarrow \mathbf{P}_{*,i} \cdot \text{scale}
+$$
 
 ---
 
@@ -146,31 +166,43 @@ $$\mathbf{P}_{i,*} \leftarrow \mathbf{P}_{i,*} \cdot \text{scale}, \quad \mathbf
 When the camera detects a landmark (static vehicle), the `landmark_ghost` node matches it against the 3D landmark database to construct a reprojection error measurement.
 
 #### A. Ghost Projection
-Landmark $L_i$ has 3D coordinates in the ENU frame $\mathbf{p}_{3D} = [L_x, L_y, L_z]^T$. Given the predicted robot pose $\mathbf{x}_k^- = [x, y, \theta]^T$, the landmark is transformed into the camera frame using camera extrinsics $T_{bc}$ (extrinsic parameters):
-$$\mathbf{p}_{camera} = \mathbf{T}_{cw}(\mathbf{x}_k^-) \cdot \begin{bmatrix} L_x \\ L_y \\ L_z \\ 1 \end{bmatrix} = \begin{bmatrix} X_c \\ Y_c \\ Z_c \\ 1 \end{bmatrix}$$
+Landmark $L_i$ has 3D coordinates in the ENU frame $\mathbf{p}_{\text{3D}} = [L_x, L_y, L_z]^T$. Given the predicted robot pose $\mathbf{x}_k^- = [x, y, \theta]^T$, the landmark is transformed into the camera frame using camera extrinsics $T_{\text{bc}}$ (extrinsic parameters):
+$$
+\mathbf{p}_{\text{camera}} = \mathbf{T}_{cw}(\mathbf{x}_k^-) \cdot \begin{bmatrix} L_x \\ L_y \\ L_z \\ 1 \end{bmatrix} = \begin{bmatrix} X_c \\ Y_c \\ Z_c \\ 1 \end{bmatrix}
+$$
 
 Using the pinhole camera model, it is projected onto the 2D image plane:
-$$u = f_x \frac{X_c}{Z_c} + c_x, \quad v = f_y \frac{Y_c}{Z_c} + c_y$$
+$$
+u = f_x \frac{X_c}{Z_c} + c_x, \quad v = f_y \frac{Y_c}{Z_c} + c_y
+$$
 
 #### B. Reprojection Error & EKF Update
 The difference between the actual YOLO bounding box center $(u_{det}, v_{det})$ and the projected ghost point $(u, v)$ forms the EKF measurement:
-$$\mathbf{z}_k^{landmark} = \begin{bmatrix} u_{det} - u \\ v_{det} - v \end{bmatrix}$$
+$$
+\mathbf{z}_k^{\text{landmark}} = \begin{bmatrix} u_{\text{det}} - u \\ v_{\text{det}} - v \end{bmatrix}
+$$
 
-Since the camera projection model is highly non-linear, the measurement Jacobian $H_{landmark}$ is computed using the **Numerical Jacobian** method with $\epsilon = 10^{-5}$:
-$$H_{landmark}[:, j] = \frac{\text{Project}(\mathbf{p}_{3D}, \mathbf{x} + \epsilon \cdot \mathbf{e}_j) - \text{Project}(\mathbf{p}_{3D}, \mathbf{x})}{\epsilon}$$
+Since the camera projection model is highly non-linear, the measurement Jacobian $H_{\text{landmark}}$ is computed using the **Numerical Jacobian** method with $\epsilon = 10^{-5}$:
+$$
+H_{\text{landmark}}[:, j] = \frac{\text{Project}(\mathbf{p}_{3D}, \mathbf{x} + \epsilon \cdot \mathbf{e}_j) - \text{Project}(\mathbf{p}_{3D}, \mathbf{x})}{\epsilon}
+$$
 
 #### C. Adaptive Measurement Noise & Chi-squared Gating
 *   **Adaptive R:** Landmark measurement noise covariance is dynamically scaled based on distance and YOLO detection confidence:
-    $$R_{adaptive} = R_{default} \cdot \frac{d_{dist} / 15.0}{\text{confidence}_{yolo}}$$
+    $$
+    R_{\text{adaptive}} = R_{\text{default}} \cdot \frac{d_{\text{dist}} / 15.0}{\text{confidence}_{\text{yolo}}}
+    $$
     *Mathematical Rationale:* Faraway objects suffer from higher angular-to-pixel uncertainty (larger projection error). Low YOLO detection confidence indicates bounding box instability, so the system automatically increases measurement noise covariance, causing EKF to rely more on the motion model.
 *   **Chi-squared Gating:** To reject data association mismatches (outliers), a Mahalanobis distance check is performed before updating the EKF:
-    $$D_M^2 = (\mathbf{z}_k^{landmark})^T \mathbf{S}^{-1} \mathbf{z}_k^{landmark} \le 15.0$$
-    Where $\mathbf{S} = H \mathbf{P} H^T + R_{adaptive}$. If $D_M^2 > 15.0$, the measurement is rejected.
+    $$
+    D_M^2 = (\mathbf{z}_k^{\text{landmark}})^T \mathbf{S}^{-1} \mathbf{z}_k^{\text{landmark}} \le 15.0
+    $$
+    Where $\mathbf{S} = H \mathbf{P} H^T + R_{\text{adaptive}}$. If $D_M^2 > 15.0$, the measurement is rejected.
 
 ---
 
 ### 2.4 U-Turn & Lane Detection
-*   **U-Turn Detection:** The `uturn_detector` node integrates yaw rate angular velocity $\omega$ from IMU in a sliding window $T_{window} = 10.0\text{ s}$ to determine the heading angle change $\Delta\theta$. If $\Delta\theta \ge 150^\circ$ within 2 seconds, the node publishes a `U_TURN_DETECTED` event on topic `/vehicle/u_turn_event`.
+*   **U-Turn Detection:** The `uturn_detector` node integrates yaw rate angular velocity $\omega$ from IMU in a sliding window $T_{\text{window}} = 10.0\text{ s}$ to determine the heading angle change $\Delta\theta$. If $\Delta\theta \ge 150^\circ$ within 2 seconds, the node publishes a `U_TURN_DETECTED` event on topic `/vehicle/u_turn_event`.
 *   **Lane Position Accuracy:** Detects left/right lane markers using Canny edge filtering and Hough line transform. From this, the relative lateral offset of the vehicle is estimated to determine whether the vehicle is keeping lane, deviating left, or deviating right, and publishes it on topic `/vehicle/lane_status`.
 
 ---
@@ -181,23 +213,23 @@ Evaluation results under simulated GPS loss on the high-density **UrbanNav Whamp
 
 | KPI Code | Evaluation Metric | Pass Threshold | Excellent Threshold | Actual Result | Status |
 | :---: | :--- | :--- | :--- | :---: | :---: |
-| **B1** | Cumulative Drift (Dead-reckoning) | $\le 5\%$ | $\le 2\%$ | **0.21%** (UrbanNav)<br>**4.36%** (KITTI) | **✅PASS** |
-| **B2** | Landmark Re-ID Recall | $\ge 85\%$ | $\ge 90\%$ | **52.00% (Unique)**<br>**5.40% (Frame)** | **❌ FAIL** |
-| **B3** | U-turn Detection Latency | $\le 2.0\text{ s}$ | $\le 1.0\text{ s}$ | **Under 0.05s** | **✅Excellent** |
-| **B4** | Lane Positioning Accuracy | $\ge 90\%$ | $\ge 95\%$ | **90.99%** (See Section 3.1) | **✅ PASS** |
+| **B1** | Cumulative Drift (Dead-reckoning) | ≤ 5% | ≤ 2% | **0.21%** (UrbanNav)<br>**4.36%** (KITTI) | **✅ PASS** |
+| **B2** | Landmark Re-ID Recall | ≥ 85% | ≥ 90% | **52.00% (Unique)**<br>**5.40% (Frame)** | **❌ FAIL** |
+| **B3** | U-turn Detection Latency | ≤ 2.0 s | ≤ 1.0 s | **Under 0.05s** | **✅ Excellent** |
+| **B4** | Lane Positioning Accuracy | ≥ 90% | ≥ 95% | **90.99%** (See Section 3.1) | **✅ PASS** |
 | **B5** | Garage / Indoor Localization | Demo works | Quantitative report | **Pass** (3.86% drift under GPS-denied) | **✅ PASS** |
-| **B6** | GPS Handover Latency | $\le 2.0\text{ s}$ | $\le 0.5\text{ s}$ | **2.00s (Net)** | **✅ PASS** |
-| **B7** | Processing Rate (FPS) | $\ge 15\text{ FPS}$ | $\ge 20\text{ FPS}$ | **19.97 Hz (EKF)**<br>**15 FPS (YOLO)** | **✅Excellent** |
-| **B8** | Pose Error After GPS Re-lock | $\le 5\text{ m}$ | $\le 2\text{ m}$ | **1.330 m** | **✅Excellent** |
+| **B6** | GPS Handover Latency | ≤ 2.0 s | ≤ 0.5 s | **2.00s (Net)** | **✅ PASS** |
+| **B7** | Processing Rate (FPS) | ≥ 15 FPS | ≥ 20 FPS | **19.97 Hz (EKF)**<br>**15 FPS (YOLO)** | **✅ Excellent** |
+| **B8** | Pose Error After GPS Re-lock | ≤ 5 m | ≤ 2 m | **1.330 m** | **✅ Excellent** |
 
 ### 3.1 Evaluation Method & Geometric Conversion of Criterion B4
 
 Since the raw **UrbanNav Whampoa** dataset does not contain predefined ground truth lane labels (`LEFT`, `RIGHT`, `CENTER`), the evaluation of **B4** was converted objectively and scientifically based on physical lateral pose error (Lateral ATE):
 *   **Mean Lateral ATE:** Reached **0.4962 m**, satisfying the standard technical threshold of `< 0.5m` widely used in Lane Keeping Assist systems.
 *   **Conversion to Lane Positioning Accuracy (%):**
-    *   The physical lane width at Whampoa is approximately $3.0\text{m}$. The lane boundary is $1.5\text{m}$ from the center of the lane (half-lane width).
-    *   Any pose estimate with a lateral error $\le 1.5\text{m}$ is classified as **correct lane positioning** (meaning the vehicle is estimated inside the correct lane without spilling over to adjacent lanes).
-    *   The ratio of poses with a lateral error $\le 1.5\text{m}$ is **90.99%** (Satisfying the KPI B4 pass threshold of **$\ge 90\%$**).
+    *   The physical lane width at Whampoa is approximately 3.0 m. The lane boundary is 1.5 m from the center of the lane (half-lane width).
+    *   Any pose estimate with a lateral error ≤ 1.5 m is classified as **correct lane positioning** (meaning the vehicle is estimated inside the correct lane without spilling over to adjacent lanes).
+    *   The ratio of poses with a lateral error ≤ 1.5 m is **90.99%** (Satisfying the KPI B4 pass threshold of **≥ 90%**).
 *   **Lane Detector Availability:** Log statistics of the `/vehicle/lane_status` topic show that only **0.46%** of states were flagged as lost/unknown (`UNKNOWN`), representing a high continuous availability of **99.54%** in complex urban scenarios.
 
 ---
@@ -206,7 +238,7 @@ Since the raw **UrbanNav Whampoa** dataset does not contain predefined ground tr
 
 The project has several technical debt points that should be noted and addressed in subsequent phases:
 
-1.  **Landmark Re-identification Recall Failure (B2):** Achieved only 52% (Unique) and 5.40% (Frame) against the $\ge 85\%$ requirement. The root cause is that the landmark database (`landmarks_urbannav.json`) currently leaves the descriptor field empty (`[0, 0, 0, 0]`), causing `landmark_ghost` to match landmarks purely based on the **closest 2D pixel distance** on the image plane. When the vehicle executes a U-turn or dead-reckoning pose drift accumulates, projected ghost locations diverge significantly from true detections. As a result, the Chi-squared gate rejects valid measurements, severely reducing Re-ID recall.
+1.  **Landmark Re-identification Recall Failure (B2):** Achieved only 52% (Unique) and 5.40% (Frame) against the ≥ 85% requirement. The root cause is that the landmark database (`landmarks_urbannav.json`) currently leaves the descriptor field empty (`[0, 0, 0, 0]`), causing `landmark_ghost` to match landmarks purely based on the **closest 2D pixel distance** on the image plane. When the vehicle executes a U-turn or dead-reckoning pose drift accumulates, projected ghost locations diverge significantly from true detections. As a result, the Chi-squared gate rejects valid measurements, severely reducing Re-ID recall.
 2.  **Geometry Discrepancy in Camera Extrinsics:** 
     *   `landmark_ghost` implements a fully dynamic extrinsic calibration model via transformation matrix $\mathbf{T}_{bc}$.
     *   In contrast, `ekf_fusion` uses a simplified hardcoded projection formula ($X_{cam} = -Y_{body}, Y_{cam} = -dz, Z_{cam} = X_{body}$), which is only valid if the camera is aligned perfectly forward at a height of 1.5m. Any change in camera mounting angles (non-zero `cam_pitch` or `cam_roll` other than $-90^\circ$) will cause EKF to compute incorrect measurement Jacobians, leading to filter divergence.
@@ -387,7 +419,7 @@ evo_rpe tum data/ground_truth.tum data/ekf_trajectory.tum \
 > * If you run the `evo_rpe` command without the `--all_pairs` flag, it will fail with an `empty index list` error. This is because the ground truth sampling rate is low (1Hz) and the trajectory is short (~576m), leaving no consecutive pairs that match exactly 500.0m apart. Adding `--all_pairs` scans all available pose pairs, fully resolving this issue.
 > * **Selecting Pose Relation `-r point_distance`:** By default, `evo_rpe` uses the translation part (`-r trans_part`) relation, which is extremely sensitive to heading/yaw coordinate offsets between the EKF local frame and global frame (which can project artificial errors exceeding 200m). Using `-r point_distance` isolates and measures the true geometric trajectory drift (yielding **~1.07m**, equivalent to **0.21% drift** - passing the 2% excellence threshold).
 
-Drift calculation formula: $\text{Drift (\%)} = \frac{\text{Mean Translation Error}}{500} \times 100$.
+Drift calculation formula: Drift (%) = (Mean Translation Error / 500) × 100.
 
 ### 7.3 Evaluating All KPIs Programmatically
 
@@ -405,9 +437,12 @@ python3 ev_localization/evaluation/evaluate_all_kpis.py
 If you prefer to measure individual KPIs manually, the methods are defined as follows:
 *   **B1 (Cumulative Drift):** Evaluated over 500m intervals using `evo_rpe` as detailed in **Section 7.2**.
 *   **B2 (Landmark Recall):** Read from the last status print block of the `landmark_ghost` node in the screen log `/tmp/ev_localization_urbannav.log` under the header `LANDMARK RE-ID STATS`.
-*   **B3 (U-turn Detection Latency):** Calculated by subtracting the timestamp when the physical vehicle yaw change reached $150^\circ$ from the time the `U-TURN DETECTED` warning was logged.
-*   **B4 (Lane Positioning Accuracy):** Evaluated by projecting the 2D position error vector onto the normal of the reference trajectory heading. Poses with a lateral offset $|e_{lateral}| \le 1.5\text{m}$ (half of the physical lane width) are counted as correct lane alignment.
-*   **B5 (Garage / GPS-Denied Localization):** Evaluated by measuring the translation drift over distance traveled during specific simulated GPS outages (Outage 1: 120s–145s, Outage 2: 230s–250s). Drift Rate (%) is calculated as: $\text{Drift Rate} = \frac{\text{Translation Error at End of Outage}}{\text{Distance Traveled during Outage}} \times 100\%$.
+*   **B3 (U-turn Detection Latency):** Calculated by subtracting the timestamp when the physical vehicle yaw change reached 150° from the time the `U-TURN DETECTED` warning was logged.
+*   **B4 (Lane Positioning Accuracy):** Evaluated by projecting the 2D position error vector onto the normal of the reference trajectory heading. Poses with a lateral offset $|e_{\text{lateral}}| \le 1.5\text{ m}$ (half of the physical lane width) are counted as correct lane alignment.
+*   **B5 (Garage / GPS-Denied Localization):** Evaluated by measuring the translation drift over distance traveled during specific simulated GPS outages (Outage 1: 120s–145s, Outage 2: 230s–250s). Drift Rate (%) is calculated as:
+    $$
+    \text{Drift Rate} = \frac{\text{Translation Error at End of Outage}}{\text{Distance Traveled during Outage}} \times 100\%
+    $$
 *   **B6 (GPS Handover Latency):** Evaluated from `/gps/status` transitions (`GPS_LOST` to `GPS_GOOD`) inside the rosbag. You can run the dedicated measurement script:
     ```bash
     python3 ev_localization/evaluation/measure_handover_latency.py data/urbannav_ekf_result
@@ -420,7 +455,7 @@ If you prefer to measure individual KPIs manually, the methods are defined as fo
 ## 📚 8. Technical Explanations
 
 *   **Hysteresis State Machine:** A mechanism to prevent state flickering (oscillation) when GPS signal metrics fluctuate around HDOP/satellite boundaries. The state transitions require satisfying thresholds for a continuous minimum duration (e.g., 2.0s for degraded-to-lost transition, 3.0s for degraded-to-good recovery, and 5.0s for lost-to-good relock) to guarantee a stable localization mode handover.
-*   **Chi-squared Gating (15.0 threshold):** Outlier rejection technique for landmark observations. With a 2D reprojection error measurement ($\Delta u, \Delta v$), the Degrees of Freedom (DoF) is 2. A Mahalanobis gate threshold of $\le 15.0$ corresponds to an extremely low false alarm rate ($\alpha < 0.001$), ensuring only highly anomalous matching errors are filtered out.
+*   **Chi-squared Gating (15.0 threshold):** Outlier rejection technique for landmark observations. With a 2D reprojection error measurement ($\Delta u, \Delta v$), the Degrees of Freedom (DoF) is 2. A Mahalanobis gate threshold of ≤ 15.0 corresponds to an extremely low false alarm rate ($\alpha < 0.001$), ensuring only highly anomalous matching errors are filtered out.
 *   **RPE (Relative Pose Error) vs. ATE (Absolute Trajectory Error):** ATE measures the absolute global pose error of the trajectory, which is highly sensitive to the initial coordinate frame alignment. RPE measures local relative error over a fixed distance interval (e.g., 500m), reflecting the actual drift rate of the dead-reckoning algorithm without penalizing rotation alignment offsets.
 *   **MCAP format:** A modern, high-performance container format for ROS 2 logging. Unlike SQLite3 (`db3`), MCAP minimizes disk I/O and CPU serialization overhead, making it highly suitable for resource-constrained edge hardware.
 *   **Landmark Ghost Projection:** A technique where the EKF's predicted robot pose is used to project known 3D landmark positions onto the 2D camera image plane. The difference (reprojection error) between these virtual projection points (ghosts) and the actual bounding boxes detected by YOLO is used to update and correct the EKF pose.
