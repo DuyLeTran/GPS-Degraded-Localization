@@ -1,198 +1,230 @@
-# 🚗 Hệ Thống Định Vị Dự Phòng Khi GPS Suy Giảm (GPS-Degraded Localization System)
+# 🚗 GPS-Degraded Localization System
 
-Hệ thống định vị dự phòng độ chính xác cao được tối ưu hóa hoàn toàn cho **CPU** (CPU-Optimized), thiết kế riêng để vận hành trên các thiết bị nhúng (edge device) của xe điện khi di chuyển vào các khu vực tín hiệu GPS suy giảm nghiêm trọng hoặc tiêu biến hoàn toàn (hầm xe siêu thị, bãi đỗ xe nhiều tầng, urban canyon, hoặc dưới các tán cây rậm rạp).
+A high-accuracy backup localization system fully optimized for **CPU** (CPU-Optimized), designed specifically to operate on electric vehicle edge devices when traveling into areas where GPS signals are severely degraded or completely lost (underground supermarket parking lots, multi-level parking structures, urban canyons, or under dense tree canopies).
 
-Hệ thống tự động thực hiện giám sát chất lượng tín hiệu GPS thời gian thực, kích hoạt thuật toán dead-reckoning (Visual Odometry / Wheel Odometry) song song và chuyển đổi mượt mà (seamless handover) sang định vị thị giác dựa trên cơ sở dữ liệu Landmark 3D (Landmark-based Correction) kết hợp bộ lọc Kalman mở rộng (EKF).
+The system automatically performs real-time GPS signal quality monitoring, activates parallel dead-reckoning (Visual Odometry / Wheel Odometry), and executes a seamless handover to vision-based positioning utilizing a 3D Landmark Database (Landmark-based Correction) integrated via an Extended Kalman Filter (EKF).
 
 ---
 
-## 🗺️ 1. Kiến Trúc Hệ Thống (System Architecture)
+<p align="center">
+  <img src="assests/demo.gif" width="100%" alt="Visual Demo" />
+  <img src="assests/u-turn-log.png" width="100%" alt="U-Turn Detection Log" />
+</p>
 
-Hệ thống bao gồm các ROS 2 node chính chạy hoàn toàn trên CPU, giao tiếp bất đồng bộ qua các topic tiêu chuẩn của ROS 2:
+---
+
+## 🗺️ 1. System Architecture
+
+The system consists of several core ROS 2 nodes running entirely on CPU, communicating asynchronously via standard ROS 2 topics:
 
 ```mermaid
 graph TD
-    subgraph Sensors & Inputs [Cảm biến & Đầu vào]
-        A["/gps/fix (sensor_msgs/NavSatFix)"]
-        B["/imu/data (sensor_msgs/Imu)"]
-        C["/camera/image_raw (sensor_msgs/Image)"]
-        Odom["/vehicle/odom (nav_msgs/Odometry)"]
+    subgraph Sensors_Inputs ["Sensors & Inputs"]
+        A["/gps/fix"]
+        B["/imu/data"]
+        C["/camera/image_raw"]
+        Odom["/vehicle/odom"]
     end
 
-    subgraph Core Processing Modules [Các Node xử lý chính]
-        D["gps_monitorNode"]
-        E["yolo_detectorNode"]
-        F["lane_detectorNode"]
-        G["uturn_detectorNode"]
-        H["landmark_ghostNode"]
-        VIO["monocular_vioNode"]
+    subgraph Core_Processing_Modules ["Core Modules"]
+        D["gps_monitor"]
+        E["yolo_detector"]
+        F["lane_detector"]
+        G["uturn_detector"]
+        H["landmark_ghost"]
+        VIO["monocular_vio"]
     end
 
-    subgraph Fusion Engine [Bộ lọc dung hợp]
-        I["ekf_fusionNode"]
+    subgraph Fusion_Engine ["Fusion Engine"]
+        I["ekf_fusion"]
     end
 
+    %% Sensors to Core Modules
     A --> D
-    D -->|"/gps/status (std_msgs/String)"| I
+    A --> I
+    B --> VIO
     C --> E
     C --> F
-    B --> G
-    B --> I
+    C --> VIO
+    Odom --> VIO
+    Odom --> G
     Odom --> I
-    VIO -->|"/vo/odom (nav_msgs/Odometry)"| I
-    E -->|"/detection/bboxes (vision_msgs/Detection2DArray)"| H
-    F -->|"/vehicle/lane_status (std_msgs/String)"| I
-    G -->|"/vehicle/u_turn_event (std_msgs/String)"| I
+
+    %% Core Modules to EKF / Ghost
+    D -->|GPS Status| I
+    VIO -->|Visual Odom| I
+    E -->|YOLO BBoxes| H
     
-    H -->|"/landmark/reprojection_error (geometry_msgs/PoseWithCovarianceStamped)"| I
-    I -->|"/ekf/pose (geometry_msgs/PoseStamped)"| H
+    %% Feedback Loop
+    H <-->|Pose & Reproj Error| I
+
+    %% Independent Output Topics
+    F -->|Lane Status| OutLane["/vehicle/lane_status<br>(Visualization / Diagnostics)"]
+    G -->|U-turn Event| OutUTurn["/vehicle/u_turn_event<br>(Visualization / Diagnostics)"]
 ```
 
-### Chi tiết vai trò từng Node:
-*   [gps_monitor.py](file:///home/tranleduy/GPS-Degraded-Localization/ev_localization/ev_localization/gps_monitor.py): Giám sát chất lượng GPS thời gian thực bằng cách theo dõi HDOP và số lượng vệ tinh. Node triển khai một State Machine có độ trễ (Hysteresis) để phân loại 3 trạng thái: `GPS_GOOD`, `GPS_DEGRADED`, và `GPS_LOST`.
-*   [yolo_detector.py](file:///home/tranleduy/GPS-Degraded-Localization/ev_localization/ev_localization/yolo_detector.py): Nhận dạng các đối tượng tĩnh dọc đường (xe cộ đỗ tĩnh) làm mốc landmark bằng mô hình YOLOv8n (ONNX Runtime, chạy hoàn toàn trên CPU).
-*   [lane_detector.py](file:///home/tranleduy/GPS-Degraded-Localization/ev_localization/ev_localization/lane_detector.py): Phát hiện vạch kẻ đường sử dụng thuật toán Canny & Hough Transform, ước lượng độ lệch tâm (lateral deviation) để xác định xe đang ở làn trái/phải hay giữa.
-*   [uturn_detector.py](file:///home/tranleduy/GPS-Degraded-Localization/ev_localization/ev_localization/uturn_detector.py): Phân tích vận tốc góc yaw tích lũy từ IMU để nhanh chóng phát hiện sự kiện quay đầu xe (U-turn) trong vòng dưới 2 giây.
-*   [landmark_ghost.py](file:///home/tranleduy/GPS-Degraded-Localization/ev_localization/ev_localization/landmark_ghost.py): Thực hiện chiếu các landmark 3D (Ghost Projection) từ cơ sở dữ liệu lên mặt phẳng ảnh 2D dựa trên pose dự đoán hiện tại của EKF, so khớp ngữ nghĩa với bounding box của YOLO để tính sai số tái chiếu (reprojection error).
-*   [ekf_fusion.py](file:///home/tranleduy/GPS-Degraded-Localization/ev_localization/ev_localization/ekf_fusion.py): Bộ lọc Kalman mở rộng (EKF) dung hợp dữ liệu IMU, Wheel Odometry, GPS, và Landmark. Node phát đi quỹ đạo và pose cuối cùng của xe tại tần số 20 Hz.
+### 📋 Connection Channels (Topics & Message Types):
+
+| Data Stream | From Node | To Node | ROS 2 Topic | Message Type |
+| :--- | :--- | :--- | :--- | :--- |
+| **GPS Fix** | GPS Sensor | `gps_monitor` / `ekf_fusion` | `/gps/fix` | `sensor_msgs/msg/NavSatFix` |
+| **IMU Data** | IMU Sensor | `monocular_vio` | `/imu/data` | `sensor_msgs/msg/Imu` |
+| **Camera Raw** | Camera Sensor | `yolo_detector` / `lane_detector` / `monocular_vio` | `/camera/image_raw` | `sensor_msgs/msg/Image` |
+| **Wheel Odom** | EV CAN Bus | `ekf_fusion` / `monocular_vio` / `uturn_detector` | `/vehicle/odom` | `nav_msgs/msg/Odometry` |
+| **GPS Status** | `gps_monitor` | `ekf_fusion` | `/gps/status` | `std_msgs/msg/String` |
+| **Visual Odom** | `monocular_vio` | `ekf_fusion` | `/vo/odom` | `nav_msgs/msg/Odometry` |
+| **YOLO BBoxes** | `yolo_detector` | `landmark_ghost` | `/detection/bboxes` | `vision_msgs/msg/Detection2DArray` |
+| **Lane Status** | `lane_detector` | Visualization / EV Controller | `/vehicle/lane_status` | `std_msgs/msg/String` |
+| **U-turn Event** | `uturn_detector` | Visualization / EV Controller | `/vehicle/u_turn_event` | `std_msgs/msg/String` |
+| **Pose & Reproj Error** | `landmark_ghost` $\Leftrightarrow$ `ekf_fusion` (Feedback Loop) | `landmark_ghost` $\Leftrightarrow$ `ekf_fusion` | `/landmark/reprojection_error` <br> `/ekf/pose` | `geometry_msgs/msg/PoseWithCovarianceStamped` <br> `geometry_msgs/msg/PoseStamped` |
 
 ---
 
-## 🧠 2. Core Logic & Thuật Toán Localization
+### Core Node Responsibilities:
+*   [gps_monitor.py](ev_localization/ev_localization/gps_monitor.py): Monitors GPS signal quality in real-time by tracking HDOP and satellite counts. Implements a Hysteresis State Machine to classify 3 states: `GPS_GOOD`, `GPS_DEGRADED`, and `GPS_LOST`.
+*   [yolo_detector.py](ev_localization/ev_localization/yolo_detector.py): Identifies static roadside objects (parked vehicles) to serve as mapping landmarks using YOLOv8n (ONNX Runtime, running purely on CPU).
+*   [lane_detector.py](ev_localization/ev_localization/lane_detector.py): Detects lane markers using Canny edge filtering and Hough line transform, estimating lateral deviation to identify if the vehicle is in the left, right, or center of the lane.
+*   [uturn_detector.py](uturn_detector.py): Integrates yaw rate angular velocity from IMU in a sliding window to quickly detect U-turn events within 2 seconds.
+*   [landmark_ghost.py](ev_localization/ev_localization/landmark_ghost.py): Projects 3D landmarks (Ghost Projection) from the database onto the 2D image plane based on the EKF's current predicted pose, performing semantic class matching against YOLO bounding boxes to output reprojection errors.
+*   [ekf_fusion.py](ev_localization/ev_localization/ekf_fusion.py): Extended Kalman Filter (EKF) engine fusing IMU, Wheel Odometry, GPS, and Landmark data. Publishes the estimated pose and final trajectory path of the vehicle at 20 Hz.
+
+---
+
+## 🧠 2. Core Logic & Localization Algorithms
 
 ### 2.1 GPS Integrity Monitor & Handover Logic
-Để ngăn ngừa tình trạng tráo đổi trạng thái liên tục (flicker) khi tín hiệu GPS dao động ở ranh giới, hệ thống áp dụng cơ chế **Hysteresis State Machine** với thời gian xác định trạng thái cụ thể:
+To prevent rapid toggling (flickering) at signal boundaries when the GPS signal fluctuates, the system implements a **Hysteresis State Machine** with specific duration thresholds:
 
 ```mermaid
 stateDiagram-v2
     [*] --> GPS_GOOD
-    GPS_GOOD --> GPS_DEGRADED : HDOP > 5.0 OR Sats < 4\n(Duy trì 2.0s)
-    GPS_DEGRADED --> GPS_LOST : HDOP > 20.0 (Duy trì 2.0s) OR Timeout > 10.0s (Tức thời)
-    GPS_DEGRADED --> GPS_GOOD : HDOP < 3.0 AND Sats >= 6\n(Duy trì 3.0s)
-    GPS_LOST --> GPS_GOOD : Tái khóa GPS\n(Duy trì 5.0s)
+    GPS_GOOD --> GPS_DEGRADED : HDOP exceeds 5.0 or<br>Satellite count under 4 (2.0s)
+    GPS_DEGRADED --> GPS_LOST : HDOP exceeds 20.0 (2.0s) or<br>Signal loss exceeds 10.0s (Instant)
+    GPS_DEGRADED --> GPS_GOOD : HDOP under 3.0 and<br>Minimum 6 satellites (3.0s)
+    GPS_LOST --> GPS_GOOD : GPS Re-acquired successfully<br>(Hold 5.0s)
 ```
 
-*   **Độ trễ degraded sang lost:** Khi HDOP vượt quá ngưỡng lost (>20.0), hệ thống vẫn duy trì bộ lọc trễ Hysteresis (`hysteresis_duration_sec` = 2.0s) để tránh nhiễu tức thời. Tuy nhiên, nếu mất tín hiệu hoàn toàn (no GPS fix message) vượt quá `timeout_sec` (10s), hệ thống chuyển sang `GPS_LOST` tức thời.
-*   **Chốt (Latch) tọa độ khi mất GPS:** Khi trạng thái chuyển thành `GPS_LOST`, hệ thống lưu giữ tọa độ WGS84 có độ tin cậy cao cuối cùng của xe cùng ma trận hiệp phương sai tương ứng:
+*   **Transition Delay (degraded to lost):** When HDOP exceeds the lost threshold (>20.0), the system still maintains a Hysteresis delay (`hysteresis_duration_sec` = 2.0s) to avoid reacting to transient noise. However, if there is a complete loss of signal (no GPS fix message received) exceeding `timeout_sec` (10s), the system transitions to `GPS_LOST` instantly.
+*   **Coordinate Latching on GPS Loss:** When the state transitions to `GPS_LOST`, the system latches the last high-confidence WGS84 coordinate of the vehicle and its corresponding covariance matrix:
     $$\mathbf{x}_{latch} = \mathbf{x}_{t_{last\_good}}, \quad \mathbf{P}_{latch} = \mathbf{P}_{t_{last\_good}}$$
-    Từ thời điểm này, EKF ngắt toàn bộ luồng update từ GPS và chuyển sang local dead-reckoning kết hợp landmark thị giác. Các biến latched này phục vụ phân tích chẩn đoán độ lệch (handover latency).
-*   **Chuyển đổi hệ tọa độ mượt mà (Seamless Handover):** Hệ thống duy trì một local frame gốc (`odom`). EKF lưu trữ góc lệch hướng yaw ban đầu `initial_yaw` để xoay hệ tọa độ GPS ENU (East-North-Up) đồng bộ hoàn toàn với odom frame ngay từ t=0:
+    From this point onward, the EKF disables all updates from the GPS and switches entirely to local dead-reckoning and visual landmark updates. These latched variables are used to analyze handover latency.
+*   **Seamless Coordinate Handover:** The system maintains a local origin frame (`odom`). The EKF stores the initial yaw offset `initial_yaw` to rotate GPS ENU (East-North-Up) coordinates into alignment with the local odom frame from $t=0$:
     $$\mathbf{p}_{local} = \mathbf{R}(-\theta_{initial}) \cdot \mathbf{p}_{ENU}$$
-    Nhờ vậy, khi mất hoặc có lại GPS, quỹ đạo không bị nhảy vọt hệ tọa độ (no coordinate jump or orientation rotation).
+    This ensures that when GPS signal is lost or re-acquired, the trajectory does not experience coordinate jumps or heading rotation discontinuities.
 
 ### 2.2 Extended Kalman Filter (EKF)
-EKF ước lượng vector trạng thái 2D của xe điện: $\mathbf{x} = [x, y, \theta]^T$, với $x, y$ là tọa độ Cartesian trong local frame và $\theta$ là hướng (heading).
+The EKF estimates a 2D state vector of the electric vehicle: $\mathbf{x} = [x, y, \theta]^T$, where $x, y$ are Cartesian coordinates in the local frame and $\theta$ is the heading.
 
-#### A. Bước Dự Đoán (Predict Step)
-Sử dụng mô hình chuyển động Mid-point Integration từ Wheel Odometry (vận tốc dài $v$, vận tốc góc $\omega$):
+#### A. Predict Step
+Motion integration uses Mid-point Integration from Wheel Odometry (linear velocity $v$, angular velocity $\omega$):
 $$\theta_{mid} = \theta_{k-1} + \omega \frac{dt}{2}$$
 $$\mathbf{x}_k^- = \begin{bmatrix} x_{k-1} + v dt \cos(\theta_{mid}) \\ y_{k-1} + v dt \sin(\theta_{mid}) \\ \theta_{k-1} + \omega dt \end{bmatrix}$$
 
-Jacobian của mô hình chuyển động $F_k$:
+Motion Jacobian $F_k$:
 $$F_k = \begin{bmatrix} 1 & 0 & -v dt \sin(\theta_{mid}) \\ 0 & 1 & v dt \cos(\theta_{mid}) \\ 0 & 0 & 1 \end{bmatrix}$$
 
-**Rời rạc hóa nhiễu hệ thống (Process Noise Discretization):**
-Để đảm bảo tính đúng đắn toán học khi thay đổi tần số sensor, ma trận nhiễu hệ thống liên tục $Q_c$ được rời rạc hóa động theo chu kỳ trích mẫu $dt$:
+**Process Noise Discretization:**
+To ensure mathematical correctness across variable sensor rates, the continuous-time process noise covariance $Q_c$ is discretized dynamically according to the sampling period $dt$:
 $$Q_d = Q_c \cdot dt = \text{diag}(q_x, q_y, q_\theta) \cdot dt$$
 $$\mathbf{P}_k^- = F_k \mathbf{P}_{k-1} F_k^T + Q_d$$
 
-#### B. Bước Cập Nhật (Update Step)
-Tùy thuộc vào trạng thái tín hiệu GPS nhận được từ Monitor:
-1.  **Chế độ `GPS_GOOD`:** Đo lường $\mathbf{z}_k^{GPS} = [x_{gps}, y_{gps}]^T$. Ma trận đo lường $H = \begin{bmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \end{bmatrix}$. Ma trận nhiễu $R = R_{gps}$.
-2.  **Chế độ `GPS_DEGRADED`:** Hệ thống chạy song song EKF dự báo kết hợp định vị thị giác, đồng thời tăng nhiễu đo lường GPS lên gấp 3 lần để giảm trọng số tin cậy:
+#### B. Update Step
+The update step depends on the GPS status received from the Monitor:
+1.  **`GPS_GOOD` mode:** Measures $\mathbf{z}_k^{GPS} = [x_{gps}, y_{gps}]^T$. Measurement matrix $H = \begin{bmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \end{bmatrix}$. Noise covariance $R = R_{gps}$.
+2.  **`GPS_DEGRADED` mode:** EKF runs in parallel with visual landmark updates, while scaling the GPS measurement noise covariance up by 3x to reduce its confidence weight:
     $$R = 3.0 \cdot R_{gps\_default}$$
-3.  **Chế độ `GPS_LOST`:** Hệ thống ngắt hoàn toàn GPS, chỉ cập nhật bằng Landmark thị giác.
+3.  **`GPS_LOST` mode:** The system completely disables GPS updates and relies solely on visual Landmark updates.
 
-#### C. Khử Phân Kỳ Hiệp Phương Sai (Covariance Clamping)
-Trong thời gian mất tín hiệu GPS kéo dài, ma trận hiệp phương sai $\mathbf{P}$ có xu hướng tăng nhanh không giới hạn. Hệ thống thực hiện chuẩn hóa và giới hạn đường chéo của $\mathbf{P}$ theo tham số `max_covariance` mà vẫn giữ nguyên cấu trúc tương quan:
-$$\text{Nếu } \mathbf{P}_{i,i} > P_{max} \implies \text{scale} = \sqrt{\frac{P_{max}}{\mathbf{P}_{i,i}}}$$
+#### C. Covariance Clamping
+During long GPS outages, the covariance matrix $\mathbf{P}$ tends to grow unboundedly. The system normalizes and clamps the diagonal elements of $\mathbf{P}$ to a parameterized `max_covariance` limit while preserving the correlation structure:
+$$\text{If } \mathbf{P}_{i,i} > P_{max} \implies \text{scale} = \sqrt{\frac{P_{max}}{\mathbf{P}_{i,i}}}$$
 $$\mathbf{P}_{i,*} \leftarrow \mathbf{P}_{i,*} \cdot \text{scale}, \quad \mathbf{P}_{*,i} \leftarrow \mathbf{P}_{*,i} \cdot \text{scale}$$
 
 ---
 
 ### 2.3 Landmark-based Correction (Visual Update)
-Khi camera phát hiện một landmark (vật thể tĩnh như xe đỗ), Node `landmark_ghost` so khớp với cơ sở dữ liệu landmark 3D để tạo bản đo sai số tái chiếu.
+When the camera detects a landmark (static vehicle), the `landmark_ghost` node matches it against the 3D landmark database to construct a reprojection error measurement.
 
-#### A. Mô hình chiếu Landmark (Ghost Projection)
-Landmark $L_i$ có tọa độ 3D ENU $\mathbf{p}_{3D} = [L_x, L_y, L_z]^T$. Dựa trên pose dự đoán hiện tại của xe $\mathbf{x}_k^- = [x, y, \theta]^T$, tọa độ landmark được chuyển sang hệ tọa độ camera thông qua ma trận biến đổi thế đứng camera $T_{bc}$ (extrinsic parameters):
+#### A. Ghost Projection
+Landmark $L_i$ has 3D coordinates in the ENU frame $\mathbf{p}_{3D} = [L_x, L_y, L_z]^T$. Given the predicted robot pose $\mathbf{x}_k^- = [x, y, \theta]^T$, the landmark is transformed into the camera frame using camera extrinsics $T_{bc}$ (extrinsic parameters):
 $$\mathbf{p}_{camera} = \mathbf{T}_{cw}(\mathbf{x}_k^-) \cdot \begin{bmatrix} L_x \\ L_y \\ L_z \\ 1 \end{bmatrix} = \begin{bmatrix} X_c \\ Y_c \\ Z_c \\ 1 \end{bmatrix}$$
 
-Sau đó, tọa độ camera được chiếu lên mặt phẳng ảnh 2D nhờ mô hình pinhole:
+Using the pinhole camera model, it is projected onto the 2D image plane:
 $$u = f_x \frac{X_c}{Z_c} + c_x, \quad v = f_y \frac{Y_c}{Z_c} + c_y$$
 
-#### B. Đánh Giá Sai Số Tái Chiếu & Update EKF
-Sai số tái chiếu giữa bounding box thực tế của YOLO $(u_{det}, v_{det})$ và điểm chiếu giả lập $(u, v)$ là bản đo cập nhật EKF:
+#### B. Reprojection Error & EKF Update
+The difference between the actual YOLO bounding box center $(u_{det}, v_{det})$ and the projected ghost point $(u, v)$ forms the EKF measurement:
 $$\mathbf{z}_k^{landmark} = \begin{bmatrix} u_{det} - u \\ v_{det} - v \end{bmatrix}$$
 
-Do mô hình camera phi tuyến tính cao, Jacobian đo lường $H_{landmark}$ được tính toán bằng phương pháp **Jacobian Số Học (Numerical Jacobian)** với $\epsilon = 10^{-5}$:
+Since the camera projection model is highly non-linear, the measurement Jacobian $H_{landmark}$ is computed using the **Numerical Jacobian** method with $\epsilon = 10^{-5}$:
 $$H_{landmark}[:, j] = \frac{\text{Project}(\mathbf{p}_{3D}, \mathbf{x} + \epsilon \cdot \mathbf{e}_j) - \text{Project}(\mathbf{p}_{3D}, \mathbf{x})}{\epsilon}$$
 
-#### C. Thích Ứng Nhiễu Bản Đo & Lọc Chi-Squared
-*   **Thích ứng động R (Adaptive R):** Sai số landmark tăng lên khi vật thể ở xa và giảm đi khi độ tự tin nhận diện YOLO cao:
+#### C. Adaptive Measurement Noise & Chi-squared Gating
+*   **Adaptive R:** Landmark measurement noise covariance is dynamically scaled based on distance and YOLO detection confidence:
     $$R_{adaptive} = R_{default} \cdot \frac{d_{dist} / 15.0}{\text{confidence}_{yolo}}$$
-    *Ý nghĩa toán học:* Khoảng cách xa làm giảm độ phân giải góc của camera trên mỗi pixel (lỗi chiếu lớn hơn). Độ tự tin phát hiện thấp thể hiện bounding box kém ổn định, do đó hệ thống tự động tăng nhiễu đo để EKF tin cậy nhiều hơn vào mô hình dự đoán.
-*   **Lọc Chi-squared Gating:** Để loại bỏ hoàn toàn các trường hợp so khớp sai (data association mismatch), hệ thống thực hiện kiểm định khoảng cách Mahalanobis trước khi cập nhật EKF:
+    *Mathematical Rationale:* Faraway objects suffer from higher angular-to-pixel uncertainty (larger projection error). Low YOLO detection confidence indicates bounding box instability, so the system automatically increases measurement noise covariance, causing EKF to rely more on the motion model.
+*   **Chi-squared Gating:** To reject data association mismatches (outliers), a Mahalanobis distance check is performed before updating the EKF:
     $$D_M^2 = (\mathbf{z}_k^{landmark})^T \mathbf{S}^{-1} \mathbf{z}_k^{landmark} \le 15.0$$
-    Trong đó $\mathbf{S} = H \mathbf{P} H^T + R_{adaptive}$. Nếu $D_M^2 > 15.0$, phép đo bị loại bỏ.
+    Where $\mathbf{S} = H \mathbf{P} H^T + R_{adaptive}$. If $D_M^2 > 15.0$, the measurement is rejected.
 
 ---
 
 ### 2.4 U-Turn & Lane Detection
-*   **U-Turn Detection:** Node `uturn_detector` tích phân vận tốc góc $\omega$ từ IMU trong một cửa sổ trượt (sliding window) thời gian $T_{window} = 10.0\text{ s}$ để xác định sự thay đổi heading góc $\Delta\theta$. Nếu $\Delta\theta \ge 150^\circ$ trong vòng dưới 2 giây, node sẽ phát đi sự kiện `U_TURN_DETECTED` qua topic `/vehicle/u_turn_event`.
-*   **Lane Position Accuracy:** Phát hiện vạch kẻ đường trái/phải bằng ảnh xám lọc Canny kết hợp Hough Transform. Từ đó, xác định vị trí tương đối của xe (độ lệch lateral offset) để biết xe có đang giữ đúng làn hay lệch trái/phải và gửi lên topic `/vehicle/lane_status`.
+*   **U-Turn Detection:** The `uturn_detector` node integrates yaw rate angular velocity $\omega$ from IMU in a sliding window $T_{window} = 10.0\text{ s}$ to determine the heading angle change $\Delta\theta$. If $\Delta\theta \ge 150^\circ$ within 2 seconds, the node publishes a `U_TURN_DETECTED` event on topic `/vehicle/u_turn_event`.
+*   **Lane Position Accuracy:** Detects left/right lane markers using Canny edge filtering and Hough line transform. From this, the relative lateral offset of the vehicle is estimated to determine whether the vehicle is keeping lane, deviating left, or deviating right, and publishes it on topic `/vehicle/lane_status`.
 
 ---
 
-## 📊 3. Kết Quả Đánh Giá KPI Nghiệm Thu (UrbanNav Whampoa)
+## 📊 3. KPI Evaluation Results (UrbanNav Whampoa)
 
-Kết quả đo lường khi chạy giả lập mất GPS hai khoảng trên tập dữ liệu đô thị cao tầng **UrbanNav Whampoa** (Hong Kong):
+Evaluation results under simulated GPS loss on the high-density **UrbanNav Whampoa** (Hong Kong) dataset:
 
-| Mã KPI | Tiêu Chí Đánh Giá | Ngưỡng Đạt (PASS) | Ngưỡng Xuất Sắc | Kết Quả Thực Tế | Trạng Thái |
+| KPI Code | Evaluation Metric | Pass Threshold | Excellent Threshold | Actual Result | Status |
 | :---: | :--- | :--- | :--- | :---: | :---: |
-| **B1** | Sai số trôi luỹ kế (Dead-reckoning) | $\le 5\%$ | $\le 2\%$ | **0.21%** (UrbanNav)<br>**4.36%** (KITTI) | **✅ PASS (Xuất sắc)** |
-| **B2** | Tỷ lệ nhận diện Landmark | $\ge 85\%$ | $\ge 90\%$ | **52.00% (Unique)**<br>**5.67% (Frame)** | **❌ FAIL (Nợ Kỹ Thuật)** |
-| **B3** | Độ trễ phát hiện xe quay đầu (U-turn) | $\le 2.0$ giây | $\le 1.0$ giây | **Dưới 0.1 giây** | **✅ PASS (Xuất sắc)** |
-| **B4** | Độ chính xác định vị làn đường | $\ge 90\%$ | $\ge 95\%$ | **90.99%** (Xem giải trình 3.1) | **✅ PASS** |
-| **B5** | Định vị hầm xe / bãi xe | Demo hoạt động | Báo cáo định lượng | **Đạt** (Quỹ đạo 576.39m) | **✅ PASS** |
-| **B6** | Độ trễ Handover GPS | $\le 2.0$ giây | $\le 0.5$ giây | **0.7s - 1.0s (Re-lock)** | **✅ PASS** |
-| **B7** | Tần số xử lý hệ thống (FPS) | $\ge 15$ FPS | $\ge 20$ FPS | **20 Hz (EKF)**<br>**15 FPS (YOLO)** | **✅ PASS** |
-| **B8** | Sai số sau khi tái khoá GPS | $\le 5$ mét | $\le 2$ mét | **1.575 mét** | **✅ PASS (Xuất sắc)** |
+| **B1** | Cumulative Drift (Dead-reckoning) | $\le 5\%$ | $\le 2\%$ | **0.21%** (UrbanNav)<br>**4.36%** (KITTI) | **✅PASS** |
+| **B2** | Landmark Re-ID Recall | $\ge 85\%$ | $\ge 90\%$ | **52.00% (Unique)**<br>**5.40% (Frame)** | **❌ FAIL** |
+| **B3** | U-turn Detection Latency | $\le 2.0\text{ s}$ | $\le 1.0\text{ s}$ | **Under 0.05s** | **✅Excellent** |
+| **B4** | Lane Positioning Accuracy | $\ge 90\%$ | $\ge 95\%$ | **90.99%** (See Section 3.1) | **✅ PASS** |
+| **B5** | Garage / Indoor Localization | Demo works | Quantitative report | **Pass** (3.86% drift under GPS-denied) | **✅ PASS** |
+| **B6** | GPS Handover Latency | $\le 2.0\text{ s}$ | $\le 0.5\text{ s}$ | **2.00s (Net)** | **✅ PASS** |
+| **B7** | Processing Rate (FPS) | $\ge 15\text{ FPS}$ | $\ge 20\text{ FPS}$ | **19.97 Hz (EKF)**<br>**15 FPS (YOLO)** | **✅Excellent** |
+| **B8** | Pose Error After GPS Re-lock | $\le 5\text{ m}$ | $\le 2\text{ m}$ | **1.330 m** | **✅Excellent** |
 
-### 3.1 Giải trình Phương pháp Đánh giá & Quy đổi hình học Tiêu chí B4
+### 3.1 Evaluation Method & Geometric Conversion of Criterion B4
 
-Do tập dữ liệu thô **UrbanNav Whampoa** không chứa sẵn nhãn phân loại làn đường (`LEFT`, `RIGHT`, `CENTER`), việc đánh giá tiêu chí **B4** được quy đổi một cách khách quan và khoa học dựa trên sai số định vị ngang vật lý (Lateral ATE):
-*   **Sai số ngang vật lý trung bình (Mean Lateral ATE):** Đạt **0.4962 m**, thỏa mãn ngưỡng sai số kỹ thuật `< 0.5m` được sử dụng rộng rãi trong các hệ thống giữ làn tự động (Lane Keeping Assist).
-*   **Quy đổi sang độ chính xác định vị đúng làn (%):**
-    *   Chiều rộng làn đường thực tế tại Whampoa là khoảng $3.0\text{m}$. Ranh giới mép làn cách tâm đường là $1.5\text{m}$ (nửa chiều rộng làn).
-    *   Mọi ước lượng vị trí có sai số ngang $\le 1.5\text{m}$ được coi là **định vị chính xác trong làn** (xe được ước lượng đúng làn, không bị nhảy sang làn bên cạnh).
-    *   Tỷ lệ các pose có sai số ngang $\le 1.5\text{m}$ đạt **90.99%** (Thỏa mãn ngưỡng đạt **$\ge 90\%$** của KPI B4).
-*   **Tính khả dụng của Lane Detector:** Thống kê từ topic `/vehicle/lane_status` trong bag kết quả cho thấy chỉ có **0.46%** trạng thái bị mất dấu làn (`UNKNOWN`), nghĩa là thuật toán dò làn đạt độ khả dụng liên tục **99.54%** trong môi trường đô thị phức tạp.
-
----
-
-## ⚠️ 4. Hạn Chế Hiện Tại & Nợ Kỹ Thuật (Current Limitations & Technical Debt)
-
-Dự án hiện có một số điểm nợ kỹ thuật cần được lưu ý và cải tiến ở các pha tiếp theo:
-
-1.  **Thất bại KPI B2 (Landmark Re-identification Recall):** Chỉ đạt 52% (Unique) và 5.67% (Frame) so với yêu cầu >= 85%. Nguyên nhân là do cơ sở dữ liệu landmark (`landmarks_urbannav.json`) hiện đang để trống trường descriptor (`[0, 0, 0, 0]`), dẫn đến việc so khớp landmark trong `landmark_ghost` hoàn toàn chỉ dựa trên **khoảng cách 2D gần nhất** trên mặt ảnh. Khi xe quay đầu hoặc pose trôi lũy kế lớn, phép chiếu bị lệch xa, dẫn đến việc bộ lọc Chi-squared loại bỏ nhầm các bản đo đúng, làm giảm mạnh tỷ lệ nhận diện thành công.
-2.  **Sự "lệch pha" hình học Camera Extrinsics:** 
-    *   `landmark_ghost` sử dụng cấu hình extrinsics động đầy đủ thông qua ma trận $\mathbf{T}_{bc}$.
-    *   Ngược lại, `ekf_fusion` sử dụng công thức hardcode giản lược $X_{cam} = -Y_{body}, Y_{cam} = -dz, Z_{cam} = X_{body}$, vốn chỉ đúng khi camera được gắn thẳng về phía trước ở độ cao 1.5m. Nếu thay đổi góc nghiêng camera (`cam_pitch`, `cam_roll` khác $-90^\circ$), EKF sẽ tính sai Jacobian đo lường, làm bộ lọc phân kỳ.
-3.  **Bỏ sót topic Lane Status và U-turn trong EKF:**
-    *   Node EKF không đăng ký nhận các topic `/vehicle/lane_status` và `/vehicle/u_turn_event`.
-    *   Đối với quay đầu xe, EKF sử dụng trực tiếp vận tốc góc thô `latest_omega` (> 0.15 rad/s) từ wheel odometry làm cơ chế bảo vệ (gating) thời gian thực. Điều này giúp phản ứng tức thời hơn việc chờ node U-turn xử lý qua cửa sổ trượt.
-    *   Đối với làn đường, thông tin làn đường hiện chỉ dùng cho mục đích perception chẩn đoán, do việc đưa trạng thái làn đường rời rạc ('LEFT', 'RIGHT') vào bộ lọc liên tục cần bản đồ làn đường ENU có độ chính xác cao.
-4.  **Nhảy vọt quỹ đạo khi GPS Re-lock:** Khi phục hồi tín hiệu GPS sau thời gian dài mất kết nối, do hiệp phương sai $\mathbf{P}$ đã phình to (dù được kẹp ở `max_covariance`), độ lợi Kalman lớn sẽ giật mạnh quỹ đạo xe về phía tọa độ GPS mới. Hệ thống hiện chưa có bộ lọc làm mượt quỹ đạo ngược (smooth transition/backwards filter) sau khi handover.
+Since the raw **UrbanNav Whampoa** dataset does not contain predefined ground truth lane labels (`LEFT`, `RIGHT`, `CENTER`), the evaluation of **B4** was converted objectively and scientifically based on physical lateral pose error (Lateral ATE):
+*   **Mean Lateral ATE:** Reached **0.4962 m**, satisfying the standard technical threshold of `< 0.5m` widely used in Lane Keeping Assist systems.
+*   **Conversion to Lane Positioning Accuracy (%):**
+    *   The physical lane width at Whampoa is approximately $3.0\text{m}$. The lane boundary is $1.5\text{m}$ from the center of the lane (half-lane width).
+    *   Any pose estimate with a lateral error $\le 1.5\text{m}$ is classified as **correct lane positioning** (meaning the vehicle is estimated inside the correct lane without spilling over to adjacent lanes).
+    *   The ratio of poses with a lateral error $\le 1.5\text{m}$ is **90.99%** (Satisfying the KPI B4 pass threshold of **$\ge 90\%$**).
+*   **Lane Detector Availability:** Log statistics of the `/vehicle/lane_status` topic show that only **0.46%** of states were flagged as lost/unknown (`UNKNOWN`), representing a high continuous availability of **99.54%** in complex urban scenarios.
 
 ---
 
-## 🛠️ 5. Hướng Dẫn Cài Đặt & Chạy Demo
+## ⚠️ 4. Limitations 
 
-### 5.1 Cài Đặt Môi Trường (Prerequisites)
-Hệ thống được kiểm thử thành công trên môi trường: **Ubuntu 24.04 LTS + ROS 2 Jazzy Jalisco**.
+The project has several technical debt points that should be noted and addressed in subsequent phases:
+
+1.  **Landmark Re-identification Recall Failure (B2):** Achieved only 52% (Unique) and 5.40% (Frame) against the $\ge 85\%$ requirement. The root cause is that the landmark database (`landmarks_urbannav.json`) currently leaves the descriptor field empty (`[0, 0, 0, 0]`), causing `landmark_ghost` to match landmarks purely based on the **closest 2D pixel distance** on the image plane. When the vehicle executes a U-turn or dead-reckoning pose drift accumulates, projected ghost locations diverge significantly from true detections. As a result, the Chi-squared gate rejects valid measurements, severely reducing Re-ID recall.
+2.  **Geometry Discrepancy in Camera Extrinsics:** 
+    *   `landmark_ghost` implements a fully dynamic extrinsic calibration model via transformation matrix $\mathbf{T}_{bc}$.
+    *   In contrast, `ekf_fusion` uses a simplified hardcoded projection formula ($X_{cam} = -Y_{body}, Y_{cam} = -dz, Z_{cam} = X_{body}$), which is only valid if the camera is aligned perfectly forward at a height of 1.5m. Any change in camera mounting angles (non-zero `cam_pitch` or `cam_roll` other than $-90^\circ$) will cause EKF to compute incorrect measurement Jacobians, leading to filter divergence.
+3.  **Omission of Lane Status and U-turn Topics in EKF:**
+    *   The EKF node does not subscribe to the `/vehicle/lane_status` or `/vehicle/u_turn_event` topics.
+    *   For U-turn events, the EKF uses raw angular velocity `latest_omega` (> 0.15 rad/s) from wheel odometry directly as a real-time gating mechanism. This provides zero-latency response compared to waiting for the U-turn node to process the sliding window.
+    *   For lane status, the lane information is currently diagnostic and for perception purposes only, as integrating discrete lane states ('LEFT', 'RIGHT') into a continuous filter requires a high-definition lane-level map.
+4.  **Trajectory Jump on GPS Re-lock:** Upon re-acquiring GPS after a long outage, the expanded state covariance $\mathbf{P}$ (even though clamped at `max_covariance`) generates a large Kalman gain, causing a sudden trajectory jump towards the new GPS coordinates. The system currently lacks a smoothing transition filter (or backward pass filter) to smooth out the post-handover trajectory.
+
+---
+
+## 🛠️ 5. Installation & Setup
+
+### 5.1 Prerequisites
+The system has been successfully tested on: **Ubuntu 24.04 LTS + ROS 2 Jazzy Jalisco**.
 
 ```bash
-# 1. Cài đặt các gói thư viện ROS 2 bổ sung
+# 1. Install additional ROS 2 dependency packages
 sudo apt update
 sudo apt install -y \
   ros-jazzy-cv-bridge \
@@ -202,99 +234,123 @@ sudo apt install -y \
   python3-numpy \
   python3-opencv
 
-# 2. Tạo môi trường ảo Python venv kế thừa hệ thống để sử dụng rclpy
-cd /home/tranleduy/GPS-Degraded-Localization
+# 2. Create a Python virtual environment inheriting system site packages to use rclpy
+cd ~/GPS-Degraded-Localization
 python3 -m venv --system-site-packages venv
 source venv/bin/activate
 
-# 3. Cài đặt các package bổ sung trong venv (Không cần flag --break-system-packages trong môi trường ảo)
+# 3. Install additional packages in the venv (no --break-system-packages flag is needed in a venv)
 pip install onnxruntime ultralytics
 pip install evo rosbags
 ```
 
 > [!NOTE]
-> * **Flag `--system-site-packages`:** Bắt buộc khi tạo venv để môi trường ảo có thể tìm thấy và import các Python bindings của ROS 2 được cài qua `apt` (như `rclpy`, `cv_bridge`, `tf2_ros`). Nếu không có flag này, bạn sẽ gặp lỗi `ModuleNotFoundError: No module named 'rclpy'`.
-> * **Flag `--break-system-packages`:** Không cần sử dụng khi bạn cài đặt bằng `pip` trong môi trường ảo đã được kích hoạt, vì môi trường này đã độc lập và không can thiệp vào các gói Python của hệ thống gốc (PEP 668).
-> * **Thư viện `ultralytics`:** Đã được bổ sung vào lệnh cài đặt ở bước 3 để phục vụ cho [yolo_detector.py](file:///home/tranleduy/GPS-Degraded-Localization/ev_localization/ev_localization/yolo_detector.py).
+> * **`--system-site-packages` flag:** Mandatory when creating the virtual environment so that the venv can locate and import ROS 2 Python bindings installed via `apt` (such as `rclpy`, `cv_bridge`, `tf2_ros`). Without this flag, you will encounter `ModuleNotFoundError: No module named 'rclpy'`.
+> * **`--break-system-packages` flag:** Not required when using `pip` inside an active virtual environment, as the environment is isolated and does not interfere with the host system's python packages (PEP 668).
+> * **`ultralytics` package:** Added to step 3's installation command to support the [yolo_detector.py](ev_localization/ev_localization/yolo_detector.py) node.
 
-### 5.2 Biên Dịch Hệ Thống
+### 5.2 Compiling the Workspace
 ```bash
-# Kích hoạt venv và ROS 2
+# Source ROS 2 and activate virtual environment
 source /opt/ros/jazzy/setup.bash
 source venv/bin/activate
 
-# Build package
+# Build the package
 colcon build --packages-select ev_localization --symlink-install
 source install/setup.bash
 ```
 
 ---
 
-## 🚀 6. Chạy Kiểm Thử & Tái Tạo Kết Quả
+## 🚀 6. Running Demos & Reproducing Results
 
-### 6.1 Chuẩn bị Dữ liệu & Mô hình
-*   **Mô hình YOLOv8n ONNX:** Tệp trọng số [best.onnx](file:///home/tranleduy/GPS-Degraded-Localization/YOLOv8n/best.onnx) đã được tải và tích hợp sẵn trong thư mục `YOLOv8n/` của repo. Mô hình được huấn luyện đặc thù trên các lớp phương tiện giao thông tĩnh (car, van, truck...) để lọc xe đỗ dọc đường làm landmark.
-*   **Dữ liệu UrbanNav Whampoa:** Tệp ground truth [UrbanNav_whampoa_raw.txt](file:///home/tranleduy/GPS-Degraded-Localization/data/UrbanNav_dataset/UrbanNav_whampoa_raw.txt) và gói dữ liệu rosbag [whampoa_ros2_bag](file:///home/tranleduy/GPS-Degraded-Localization/data/UrbanNav_dataset/whampoa_ros2_bag) đã được chuẩn bị sẵn trong thư mục `data/UrbanNav_dataset/`. Bạn không cần phải giải nén tệp zip `2_UrbanNav-HK-Deep-Urban-1.zip` vì dữ liệu phục vụ chạy trực tiếp đã được giải nén sẵn.
+### 6.1 Model & Dataset Setup
 
-### 6.2 Kịch Bản 1: Chạy Smoke Test (Dữ liệu Giả Lập)
-Smoke Test giúp kiểm tra tính đúng đắn của EKF, State Machine, và các TF tĩnh mà không cần dataset lớn.
+#### A. YOLOv8n ONNX Model
+The weight file [best.onnx](YOLOv8n/best.onnx) is pre-downloaded and integrated into the `YOLOv8n/` directory of the repo. It is specifically trained on static vehicle classes (car, van, truck...) to identify parked cars as landmark correctors.
 
-Chỉ cần chạy script kiểm thử tự động:
+#### B. UrbanNav Whampoa Dataset (Download & Setup)
+The high-density UrbanNav Whampoa dataset can be downloaded from Google Drive. Follow these steps to set up the directories and extract the data:
+
+1. **Download the Dataset:**
+   Download the dataset files from the [Google Drive Folder](https://drive.google.com/drive/folders/1D7sBJAkL8yjIpUygMWokz32GZsHzLGCG?usp=sharing) and save the zipped archive `2_UrbanNav-HK-Deep-Urban-1.zip` inside the `data/UrbanNav_dataset/` folder. Alternatively, you can download the entire folder directly using `gdown`:
+   ```bash
+   cd ~/GPS-Degraded-Localization
+   mkdir -p data/UrbanNav_dataset
+   # Install gdown if not already installed
+   pip install gdown
+   # Download the entire Google Drive folder
+   gdown --folder "https://drive.google.com/drive/folders/1D7sBJAkL8yjIpUygMWokz32GZsHzLGCG?usp=sharing" -O data/UrbanNav_dataset/
+   ```
+   ```
+   After extraction, verify that the directory structure matches the layout below:
+   ~/GPS-Degraded-Localization/data/
+   └── UrbanNav_dataset/
+       ├── 2_UrbanNav-HK-Deep-Urban-1.zip       
+       ├── UrbanNav_whampoa_raw.txt             # (Ground Truth)
+       └── whampoa_ros2_bag/      
+           └── whampoa_ros2_bag.db3             # ! Important
+           └── metadata.yaml               
+   ```
+
+*Note: If the dataset files are already extracted and structured as above, you can skip the download and extraction steps.*
+
+### 6.2 Scenario 1: Smoke Test (Simulated Data)
+The Smoke Test verifies EKF mathematics, state transitions, and static TF publisher setups without requiring large bag datasets.
+
+Simply run the automated test script:
 ```bash
-cd /home/tranleduy/GPS-Degraded-Localization
+cd ~/GPS-Degraded-Localization
 ./run_smoke_test.sh
 ```
-*Lưu ý:* Script `run_smoke_test.sh` sẽ tự động dọn dẹp các tiến trình cũ, khởi chạy các TF publisher tĩnh trong nền và thực thi bộ phát dữ liệu giả lập. Bạn không cần phải mở Terminal riêng để chạy thủ công các lệnh `static_transform_publisher`. Kết quả ghi nhận tại `data/smoke_ekf_result`.
+*Note:* The `run_smoke_test.sh` script automatically terminates old processes, launches static TF publishers in the background, and runs the simulated data publisher. You do not need to open separate terminal windows to run `static_transform_publisher` manually. Outputs are recorded in `data/smoke_ekf_result`.
 
-### 6.3 Kịch Bản 2: Chạy Trên Dataset UrbanNav Whampoa (Đầy Đủ Pipeline)
-1.  **Chạy kiểm thử không GUI (Để chấm điểm tự động):**
+### 6.3 Scenario 2: UrbanNav Whampoa Dataset (Full Pipeline)
+1.  **Headless Evaluation (For Automated Scoring):**
     ```bash
-    cd /home/tranleduy/GPS-Degraded-Localization
+    cd ~/GPS-Degraded-Localization
     ./run_urbannav_test.sh
     ```
-    *Log hệ thống được ghi nhận tại `/tmp/ev_localization_urbannav.log`, và MCAP rosbag lưu tại `data/urbannav_ekf_result`.*
+    *Execution logs are saved at `/tmp/ev_localization_urbannav.log`, and the output MCAP rosbag is saved at `data/urbannav_ekf_result`.*
 
-2.  **Chạy Demo đồ họa (RViz2 + Rqt Image View):**
-    
-    Tùy thuộc vào môi trường phát triển của bạn (chạy dưới Windows WSL2 hay chạy trực tiếp Linux Native), hãy chọn phương án phù hợp dưới đây:
+2.  **Graphical Demo (RViz2 + Rqt Image View):**
+    Depending on your development environment (Windows WSL2 vs. Native Linux), select the appropriate option below:
 
-    *   **Phương án A: Chạy trên Windows Subsystem for Linux (WSL2)**
-        
-        Nếu bạn phát triển trong môi trường WSL2 trên Windows, hệ thống hỗ trợ script tự động khởi chạy và phân bổ cửa sổ nhờ khả năng gọi lệnh chéo (WSL interoperability) tới Windows Terminal (`wt.exe`):
+    *   **Option A: Running on Windows Subsystem for Linux (WSL2)**
+        If you develop inside WSL2 on Windows, the system supports an automated launch script that uses WSL-Windows interoperability to spawn Windows Terminal (`wt.exe`):
         ```bash
-        cd /home/tranleduy/GPS-Degraded-Localization
-        # Kích hoạt venv và chạy script tự động
+        cd ~/GPS-Degraded-Localization
+        # Activate virtual environment and run the visual launch script
         source venv/bin/activate
         ./run_urbannav_visualization.sh
         ```
-        *Script sẽ tự động khởi chạy 2 cửa sổ Windows Terminal riêng biệt chạy các node nền, mở sẵn RViz2 và Rqt Image View hiển thị làn đường.*
+        *The script automatically spawns two separate Windows Terminal windows for background nodes, and opens RViz2 and Rqt Image View for lane debugging.*
 
-    *   **Phương án B: Chạy trên Native Linux (Ubuntu nguyên bản)**
+    *   **Option B: Running on Native Linux (Ubuntu Host)**
+        Since the visual script depends on Windows Terminal (`wt.exe`), when running on native Linux, you should launch the nodes manually by opening **5 separate terminal tabs** (or using `tmux`) in the following order:
         
-        Vì script tự động phụ thuộc vào Windows Terminal (`wt.exe`), khi chạy trên Linux Native, bạn hãy khởi chạy các node độc lập bằng cách mở **5 Terminal/Tab độc lập** (hoặc sử dụng `tmux`) theo thứ tự sau:
-        
-        *   **Terminal 1 (Core Launch - Khởi chạy các Node cốt lõi):**
+        *   **Terminal 1 (Core Nodes Launch):**
             ```bash
             source /opt/ros/jazzy/setup.bash
-            source /home/tranleduy/GPS-Degraded-Localization/install/setup.bash
+            source ~/GPS-Degraded-Localization/install/setup.bash
             ros2 launch ev_localization ev_localization_urbannav.launch.py
             ```
-        *   **Terminal 2 (YOLO Detector - Nhận diện đối tượng):**
+        *   **Terminal 2 (YOLO Detector):**
             ```bash
-            source /home/tranleduy/GPS-Degraded-Localization/venv/bin/activate
+            source ~/GPS-Degraded-Localization/venv/bin/activate
             ros2 run ev_localization yolo_detector --ros-args -p use_sim_time:=true --remap /camera/image_raw:=/zed2/camera/left/image_raw
             ```
-        *   **Terminal 3 (Bag Play - Phát lại dữ liệu cảm biến):**
+        *   **Terminal 3 (Rosbag Playback):**
             ```bash
             source /opt/ros/jazzy/setup.bash
             ros2 bag play data/UrbanNav_dataset/whampoa_ros2_bag --clock --rate 1.0 --start-offset 110
             ```
-        *   **Terminal 4 (RViz2 Visualization - Trực quan hóa 3D):**
+        *   **Terminal 4 (RViz2 3D Visualizer):**
             ```bash
             source /opt/ros/jazzy/setup.bash
-            rviz2 -d /home/tranleduy/GPS-Degraded-Localization/ev_localization.rviz --ros-args -p use_sim_time:=true
+            rviz2 -d ~/GPS-Degraded-Localization/ev_localization.rviz --ros-args -p use_sim_time:=true
             ```
-        *   **Terminal 5 (Rqt Image View - Xem camera debug làn đường):**
+        *   **Terminal 5 (Rqt Image View - Lane Debugging Visualizer):**
             ```bash
             source /opt/ros/jazzy/setup.bash
             rqt_image_view /lane/debug_image --ros-args -p use_sim_time:=true
@@ -302,49 +358,71 @@ cd /home/tranleduy/GPS-Degraded-Localization
 
 ---
 
-## 📐 7. Cách Đánh Giá Điểm KPI Bằng Lệnh
+## 📐 7. Evaluating KPI Metrics via Command Line
 
-Để đánh giá sai số trôi lũy kế (B1) so với Ground Truth, sử dụng công cụ `evo`:
-
-### 7.1 Trích xuất và Chuyển đổi Dữ liệu sang định dạng TUM
-*   **Trích xuất kết quả EKF từ Rosbag:**
+### 7.1 Format Conversion to TUM
+*   **Convert EKF output bag to TUM format:**
     ```bash
     python3 ev_localization/evaluation/bag_to_tum.py data/urbannav_ekf_result data/ekf_trajectory.tum
     ```
-*   **Chuyển đổi Ground Truth của UrbanNav Whampoa:**
-    Hệ thống cung cấp sẵn script [urbannav_gt_to_tum.py](file:///home/tranleduy/GPS-Degraded-Localization/ev_localization/evaluation/urbannav_gt_to_tum.py) để phân tích tệp GPS thô của UrbanNav, thực hiện chiếu local và xoay hệ tọa độ ban đầu đồng bộ với odom frame:
+*   **Convert UrbanNav Whampoa Ground Truth:**
+    The system provides the [urbannav_gt_to_tum.py](ev_localization/evaluation/urbannav_gt_to_tum.py) script to parse the raw UrbanNav GPS file, project DMS coordinates to local Cartesian coordinates, and rotate them to align with the EKF odom frame:
     ```bash
     python3 ev_localization/evaluation/urbannav_gt_to_tum.py data/UrbanNav_dataset/UrbanNav_whampoa_raw.txt data/ground_truth.tum
     ```
-*   *(Tùy chọn) Chuyển đổi Ground Truth cho KITTI dataset:*
+*   *(Optional) Convert KITTI Ground Truth:*
     ```bash
     python3 ev_localization/evaluation/kitti_gt_to_tum.py
     ```
 
-### 7.2 Tính toán sai số
-
+### 7.2 Running the RPE Metric
 ```bash
-# Đánh giá sai số Relative Pose Error (RPE) mỗi 500m
+# Evaluate Relative Pose Error (RPE) over 500m intervals
 evo_rpe tum data/ground_truth.tum data/ekf_trajectory.tum \
   --delta 500 --delta_unit m --all_pairs -r point_distance
 ```
 
 > [!IMPORTANT]
-> **Giải quyết lỗi `empty index list`:**
-> * Nếu bạn chạy lệnh `evo_rpe` mà không có cờ `--all_pairs`, hệ thống sẽ báo lỗi `empty index list` do tần số lấy mẫu của tệp Ground Truth thấp (1Hz) và tổng chiều dài quỹ đạo ngắn (~576m), dẫn đến không tìm thấy cặp pose liên tiếp nào khớp chính xác khoảng cách 500.0m. Thêm cờ `--all_pairs` sẽ giải quyết triệt để lỗi này bằng cách quét mọi cặp pose khả dụng.
-> * **Lựa chọn Pose Relation `-r point_distance`:** Mặc định `evo_rpe` sử dụng quan hệ dịch chuyển dịch vị (`-r trans_part`), vốn cực kỳ nhạy cảm với các sai lệch góc xoay (heading/yaw offset) giữa hệ tọa độ của bag chạy và Ground Truth (tạo ra sai số giả lập lớn tới hơn 200m khi tính tiến 500m). Sử dụng tham số `-r point_distance` giúp đo đạc chính xác sai số trôi dài hình học thực tế của quỹ đạo (kết quả đạt **~1.07m**, tương đương **0.21% drift** - vượt ngưỡng xuất sắc 2%).
+> **Resolving `empty index list` errors:**
+> * If you run the `evo_rpe` command without the `--all_pairs` flag, it will fail with an `empty index list` error. This is because the ground truth sampling rate is low (1Hz) and the trajectory is short (~576m), leaving no consecutive pairs that match exactly 500.0m apart. Adding `--all_pairs` scans all available pose pairs, fully resolving this issue.
+> * **Selecting Pose Relation `-r point_distance`:** By default, `evo_rpe` uses the translation part (`-r trans_part`) relation, which is extremely sensitive to heading/yaw coordinate offsets between the EKF local frame and global frame (which can project artificial errors exceeding 200m). Using `-r point_distance` isolates and measures the true geometric trajectory drift (yielding **~1.07m**, equivalent to **0.21% drift** - passing the 2% excellence threshold).
 
-Công thức tính: $\text{Drift (\%)} = \frac{\text{Mean Translation Error}}{500} \times 100$.
+Drift calculation formula: $\text{Drift (\%)} = \frac{\text{Mean Translation Error}}{500} \times 100$.
+
+### 7.3 Evaluating All KPIs Programmatically
+
+To evaluate all validation criteria (B1 to B8) in a single step, the system provides a unified evaluation tool [evaluate_all_kpis.py](ev_localization/evaluation/evaluate_all_kpis.py). This tool associates EKF trajectory poses with Ground Truth coordinates, computes lateral positioning errors, extracts handover latencies and GPS re-lock errors from the rosbag, calculates publication FPS, and parses landmark detection statistics from log files.
+
+#### A. Running the Automated Evaluator
+Make sure you have completed the format conversions in **Section 7.1**, then run the evaluator script inside the activated virtual environment:
+```bash
+cd ~/GPS-Degraded-Localization
+source venv/bin/activate
+python3 ev_localization/evaluation/evaluate_all_kpis.py
+```
+
+#### B. Criteria Evaluation Definitions
+If you prefer to measure individual KPIs manually, the methods are defined as follows:
+*   **B1 (Cumulative Drift):** Evaluated over 500m intervals using `evo_rpe` as detailed in **Section 7.2**.
+*   **B2 (Landmark Recall):** Read from the last status print block of the `landmark_ghost` node in the screen log `/tmp/ev_localization_urbannav.log` under the header `LANDMARK RE-ID STATS`.
+*   **B3 (U-turn Detection Latency):** Calculated by subtracting the timestamp when the physical vehicle yaw change reached $150^\circ$ from the time the `U-TURN DETECTED` warning was logged.
+*   **B4 (Lane Positioning Accuracy):** Evaluated by projecting the 2D position error vector onto the normal of the reference trajectory heading. Poses with a lateral offset $|e_{lateral}| \le 1.5\text{m}$ (half of the physical lane width) are counted as correct lane alignment.
+*   **B5 (Garage / GPS-Denied Localization):** Evaluated by measuring the translation drift over distance traveled during specific simulated GPS outages (Outage 1: 120s–145s, Outage 2: 230s–250s). Drift Rate (%) is calculated as: $\text{Drift Rate} = \frac{\text{Translation Error at End of Outage}}{\text{Distance Traveled during Outage}} \times 100\%$.
+*   **B6 (GPS Handover Latency):** Evaluated from `/gps/status` transitions (`GPS_LOST` to `GPS_GOOD`) inside the rosbag. You can run the dedicated measurement script:
+    ```bash
+    python3 ev_localization/evaluation/measure_handover_latency.py data/urbannav_ekf_result
+    ```
+*   **B7 (Processing Rate - FPS):** Measured by dividing the total count of published `/ekf/pose` messages by the duration of the rosbag playback.
+*   **B8 (Pose Error after GPS Re-lock):** The 2D Euclidean translation distance error between EKF trajectory and Ground Truth at the exact timestamp when EKF transitions back to the `GPS_GOOD` state.
 
 ---
 
-## 📚 8. Thuật Ngữ Kỹ Thuật & Giải Thích (Technical Explanations)
+## 📚 8. Technical Explanations
 
-*   **Hysteresis State Machine (Bộ lọc trễ trạng thái):** Cơ chế chống nhấp nháy (flicker) khi tín hiệu GPS dao động tại ranh giới của các ngưỡng HDOP. Bộ lọc quy định thời gian duy trì tối thiểu (ví dụ: cần 2.0s degraded để chuyển sang lost, 3.0s để quay lại good từ degraded, và 5.0s relock từ lost) nhằm đảm bảo trạng thái định vị ổn định, không bị nhiễu nhảy vọt.
-*   **Chi-squared Gating (Ngưỡng kẹp 15.0):** Một thuật toán lọc bỏ bản đo ngoại lai (outlier rejection). Với phép đo ảnh 2D ($\Delta u, \Delta v$), Degrees of Freedom (DoF) bằng 2. Ngưỡng Mahalanobis Gate $\le 15.0$ tương đương với xác suất từ chối sai (false alarm rate) cực thấp $\alpha < 0.001$, đảm bảo chỉ những so khớp landmark thực sự sai lệch nghiêm trọng mới bị loại bỏ.
-*   **RPE (Relative Pose Error) vs ATE (Absolute Trajectory Error):** ATE đo sai số toàn cục tuyệt đối của quỹ đạo, rất nhạy cảm với sai số gốc hệ tọa độ ban đầu. RPE đo sai số tương đối trên mỗi khoảng di chuyển (ở đây là mỗi 500m), phản ánh trung thực tốc độ trôi (drift rate) của thuật toán dead-reckoning mà không bị phạt bởi góc lệch xoay ban đầu.
-*   **MCAP:** Định dạng file rosbag thế hệ mới được tối ưu hóa tối đa về hiệu năng đọc/ghi trực tiếp và tính tuần tự (serialization). Khác với SQLite3 (`db3`), MCAP giảm tải I/O đĩa và CPU đáng kể, rất phù hợp cho các phần cứng nhúng yếu.
-*   **Landmark Ghost Projection (Chiếu ảnh landmark):** Sử dụng tư thế dự đoán của xe để chiếu tọa độ landmark 3D đã biết từ CSDL lên tọa độ 2D của camera ($u, v$). Sai số giữa điểm chiếu lý thuyết này và kết quả YOLO phát hiện thực tế chính là phép đo hiệu chỉnh (reprojection error) giúp EKF triệt tiêu sai số trôi.
+*   **Hysteresis State Machine:** A mechanism to prevent state flickering (oscillation) when GPS signal metrics fluctuate around HDOP/satellite boundaries. The state transitions require satisfying thresholds for a continuous minimum duration (e.g., 2.0s for degraded-to-lost transition, 3.0s for degraded-to-good recovery, and 5.0s for lost-to-good relock) to guarantee a stable localization mode handover.
+*   **Chi-squared Gating (15.0 threshold):** Outlier rejection technique for landmark observations. With a 2D reprojection error measurement ($\Delta u, \Delta v$), the Degrees of Freedom (DoF) is 2. A Mahalanobis gate threshold of $\le 15.0$ corresponds to an extremely low false alarm rate ($\alpha < 0.001$), ensuring only highly anomalous matching errors are filtered out.
+*   **RPE (Relative Pose Error) vs. ATE (Absolute Trajectory Error):** ATE measures the absolute global pose error of the trajectory, which is highly sensitive to the initial coordinate frame alignment. RPE measures local relative error over a fixed distance interval (e.g., 500m), reflecting the actual drift rate of the dead-reckoning algorithm without penalizing rotation alignment offsets.
+*   **MCAP format:** A modern, high-performance container format for ROS 2 logging. Unlike SQLite3 (`db3`), MCAP minimizes disk I/O and CPU serialization overhead, making it highly suitable for resource-constrained edge hardware.
+*   **Landmark Ghost Projection:** A technique where the EKF's predicted robot pose is used to project known 3D landmark positions onto the 2D camera image plane. The difference (reprojection error) between these virtual projection points (ghosts) and the actual bounding boxes detected by YOLO is used to update and correct the EKF pose.
 
 ---
-*Tài liệu kỹ thuật được duy trì bởi Đội ngũ Phát triển Chính (Lead Developer) dự án GPS-Degraded Localization.*
